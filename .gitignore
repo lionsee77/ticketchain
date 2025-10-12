@@ -1,0 +1,63 @@
+# --- Node / Package managers ---
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+.pnpm-debug.log*
+.package-lock.bak
+
+# --- Environment / Secrets ---
+.env
+.env.*
+!.env.example
+
+# --- Hardhat-specific ---
+backend/artifacts/
+backend/cache/
+backend/typechain-types/
+backend/coverage/
+backend/ignition/deployments/
+
+# --- OS / Editor cruft ---
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*.orig
+*.bak
+*.tmp
+~$*
+ehthumbs.db
+
+# --- Logs & coverage ---
+logs/
+*.log
+*.log.*
+coverage/
+coverage-final.json
+lcov.info
+.nyc_output/
+
+# --- Docker ---
+docker/*.log
+docker/*.pid
+docker/*.pid.lock
+
+# --- Misc binary/blobs ---
+*.zip
+*.tar
+*.tar.gz
+*.tgz
+*.7z
+*.gz
+*.rar
+
+# --- Monorepo tooling ---
+.pnp.*
+.pnp
+.husky/_/
+.docusaurus/
+changeset/
+.changeset
