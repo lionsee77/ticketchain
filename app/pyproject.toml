@@ -1,0 +1,15 @@
+[project]
+name = "app"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi[standard]>=0.119.0",
+    "passlib[bcrypt]>=1.7.4",
+    "python-dotenv>=1.1.1",
+    "python-jose[cryptography]>=3.5.0",
+    "python-multipart>=0.0.20",
+    "redis>=6.4.0",
+    "web3>=7.13.0",
+]

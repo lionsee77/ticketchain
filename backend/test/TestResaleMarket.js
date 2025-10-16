@@ -6,7 +6,7 @@ describe("ResaleMarket", function () {
   let resaleMarket;
   let ticketNFT;
   let eventManager;
-  let owner, organiser, seller, buyer, otherUser;
+  let owner, organiser, oracle, seller, buyer, otherUser;
 
   const RESALE_CAP_BPS = 11000; // 110%
   const ROYALTY_BPS = 500; // 5%
@@ -14,7 +14,8 @@ describe("ResaleMarket", function () {
   const RESALE_PRICE = ethers.parseEther("0.11"); // 110% of original
 
   beforeEach(async function () {
-    [owner, organiser, seller, buyer, otherUser] = await ethers.getSigners();
+    [owner, organiser, oracle, seller, buyer, otherUser] =
+      await ethers.getSigners();
 
     // Deploy TicketNFT contract
     const TicketNFT = await ethers.getContractFactory("TicketNFT");
@@ -29,6 +30,9 @@ describe("ResaleMarket", function () {
     // Set up the contracts connection
     await eventManager.setTicketNFTAddress(await ticketNFT.getAddress());
     await ticketNFT.transferOwnership(await eventManager.getAddress());
+
+    // Set oracle for event management
+    await eventManager.setOracle(oracle.address);
 
     // Deploy ResaleMarket contract
     const ResaleMarket = await ethers.getContractFactory("ResaleMarket");
@@ -160,8 +164,8 @@ describe("ResaleMarket", function () {
     });
 
     it("Should reject listing for inactive event", async function () {
-      // Close the event
-      await eventManager.connect(organiser).closeEvent(1);
+      // Close the event (using oracle)
+      await eventManager.connect(oracle).closeEvent(1);
 
       const ticketId = 1;
 

@@ -21,6 +21,7 @@ contract EventManager {
     mapping(uint256 => Event) public events; // eventId => Event
     uint256 public eventCounter; // Counter for event IDs
     address public ticketNFTAddress; // Address of the TicketNFT contract
+    address public oracle; // Address of the oracle
 
     event EventCreated(uint256 eventId, string name, address organiser);
     event TicketsPurchased(uint256 eventId, address buyer, uint256 quantity);
@@ -31,12 +32,9 @@ contract EventManager {
         ticketNFTAddress = _ticketNFTAddress;
     }
 
-    // Modifier to restrict access to event organisers
-    modifier organiserOnly(uint256 eventId) {
-        require(
-            events[eventId].organiser == msg.sender,
-            "Not the event organiser"
-        );
+    // Modifier to restrict access to oracle
+    modifier oracleOnly() {
+        require(oracle == msg.sender, "Not the oracle");
         _;
     }
 
@@ -85,6 +83,32 @@ contract EventManager {
         emit TicketsPurchased(eventId, msg.sender, quantity);
     }
 
+    // Buy tickets for an event on behalf of another address (oracle only)
+    function buyTicketsFor(
+        uint256 eventId,
+        uint256 quantity,
+        address recipient
+    ) public payable oracleOnly {
+        Event storage e = events[eventId];
+        require(e.isActive, "Event is not active");
+        require(quantity > 0, "Invalid ticket quantity");
+        require(
+            e.ticketsSold + quantity <= e.totalTickets,
+            "Not enough tickets available"
+        );
+        require(
+            msg.value == e.ticketPrice * quantity,
+            "Incorrect Ether value sent"
+        );
+
+        e.ticketsSold += quantity;
+
+        // Mint tickets to the specified recipient (not msg.sender)
+        mintTickets(eventId, quantity, recipient);
+
+        emit TicketsPurchased(eventId, recipient, quantity);
+    }
+
     // Mint tickets
     function mintTickets(
         uint256 eventId,
@@ -100,7 +124,7 @@ contract EventManager {
         }
     }
 
-    function closeEvent(uint256 eventId) public organiserOnly(eventId) {
+    function closeEvent(uint256 eventId) public oracleOnly {
         Event storage e = events[eventId];
         e.isActive = false;
         emit EventClosed(eventId);
@@ -120,5 +144,9 @@ contract EventManager {
 
     function eventIsActive(uint256 eventId) external view returns (bool) {
         return events[eventId].isActive;
+    }
+
+    function setOracle(address _oracle) public {
+        oracle = _oracle;
     }
 }
