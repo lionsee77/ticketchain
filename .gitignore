@@ -19,6 +19,7 @@ backend/cache/
 backend/typechain-types/
 backend/coverage/
 backend/ignition/deployments/
+backend/deployments/
 
 # --- OS / Editor cruft ---
 .DS_Store
