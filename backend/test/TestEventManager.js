@@ -189,6 +189,143 @@ describe("EventManager", function () {
     });
   });
 
+  describe("Oracle Ticket Purchasing (buyTicketsFor)", function () {
+    beforeEach(async function () {
+      // Create an event first
+      await eventManager
+        .connect(organiser)
+        .createEvent(
+          "Test Event",
+          "Test Venue",
+          Math.floor(Date.now() / 1000) + 86400,
+          ethers.parseEther("0.1"),
+          100
+        );
+    });
+
+    it("Should allow oracle to buy tickets for a user", async function () {
+      const quantity = 2;
+      const ticketPrice = ethers.parseEther("0.1");
+      const totalCost = ticketPrice * BigInt(quantity);
+
+      const tx = await eventManager
+        .connect(oracle)
+        .buyTicketsFor(1, quantity, buyer.address, {
+          value: totalCost,
+        });
+
+      await expect(tx)
+        .to.emit(eventManager, "TicketsPurchased")
+        .withArgs(1, buyer.address, quantity);
+
+      // Verify event tickets sold updated
+      const event = await eventManager.events(1);
+      expect(event.ticketsSold).to.equal(quantity);
+
+      // Verify NFT tickets were minted to the buyer (not oracle)
+      expect(await ticketNFT.balanceOf(buyer.address)).to.equal(quantity);
+      expect(await ticketNFT.balanceOf(oracle.address)).to.equal(0);
+    });
+
+    it("Should reject non-oracle from using buyTicketsFor", async function () {
+      const quantity = 1;
+      const ticketPrice = ethers.parseEther("0.1");
+
+      await expect(
+        eventManager.connect(buyer).buyTicketsFor(1, quantity, buyer.address, {
+          value: ticketPrice,
+        })
+      ).to.be.revertedWith("Not the oracle");
+    });
+
+    it("Should reject buyTicketsFor with incorrect payment", async function () {
+      const quantity = 1;
+      const incorrectPayment = ethers.parseEther("0.05"); // Less than required
+
+      await expect(
+        eventManager.connect(oracle).buyTicketsFor(1, quantity, buyer.address, {
+          value: incorrectPayment,
+        })
+      ).to.be.revertedWith("Incorrect Ether value sent");
+    });
+
+    it("Should reject buyTicketsFor with zero tickets", async function () {
+      await expect(
+        eventManager.connect(oracle).buyTicketsFor(1, 0, buyer.address, {
+          value: 0,
+        })
+      ).to.be.revertedWith("Invalid ticket quantity");
+    });
+
+    it("Should reject buyTicketsFor when not enough tickets available", async function () {
+      const quantity = 101; // More than available
+      const ticketPrice = ethers.parseEther("0.1");
+      const totalCost = ticketPrice * BigInt(quantity);
+
+      await expect(
+        eventManager.connect(oracle).buyTicketsFor(1, quantity, buyer.address, {
+          value: totalCost,
+        })
+      ).to.be.revertedWith("Not enough tickets available");
+    });
+
+    it("Should reject buyTicketsFor for inactive event", async function () {
+      // Close the event first
+      await eventManager.connect(oracle).closeEvent(1);
+
+      const quantity = 1;
+      const ticketPrice = ethers.parseEther("0.1");
+
+      await expect(
+        eventManager.connect(oracle).buyTicketsFor(1, quantity, buyer.address, {
+          value: ticketPrice,
+        })
+      ).to.be.revertedWith("Event is not active");
+    });
+
+    it("Should allow oracle to buy tickets for different users", async function () {
+      const quantity = 1;
+      const ticketPrice = ethers.parseEther("0.1");
+
+      // Buy for buyer
+      await eventManager
+        .connect(oracle)
+        .buyTicketsFor(1, quantity, buyer.address, {
+          value: ticketPrice,
+        });
+
+      // Buy for otherUser
+      await eventManager
+        .connect(oracle)
+        .buyTicketsFor(1, quantity, otherUser.address, {
+          value: ticketPrice,
+        });
+
+      // Verify both users received their tickets
+      expect(await ticketNFT.balanceOf(buyer.address)).to.equal(quantity);
+      expect(await ticketNFT.balanceOf(otherUser.address)).to.equal(quantity);
+      expect(await ticketNFT.balanceOf(oracle.address)).to.equal(0);
+
+      // Verify event state
+      const event = await eventManager.events(1);
+      expect(event.ticketsSold).to.equal(quantity * 2);
+    });
+
+    it("Should emit correct TicketsPurchased event for buyTicketsFor", async function () {
+      const quantity = 3;
+      const ticketPrice = ethers.parseEther("0.1");
+      const totalCost = ticketPrice * BigInt(quantity);
+
+      await expect(
+        eventManager.connect(oracle).buyTicketsFor(1, quantity, buyer.address, {
+          value: totalCost,
+        })
+      )
+        .to.emit(eventManager, "TicketsPurchased")
+        .withArgs(1, buyer.address, quantity); // Event should show buyer, not oracle
+    });
+  });
+
   describe("Event Management", function () {
     beforeEach(async function () {
       await eventManager

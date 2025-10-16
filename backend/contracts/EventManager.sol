@@ -83,6 +83,32 @@ contract EventManager {
         emit TicketsPurchased(eventId, msg.sender, quantity);
     }
 
+    // Buy tickets for an event on behalf of another address (oracle only)
+    function buyTicketsFor(
+        uint256 eventId,
+        uint256 quantity,
+        address recipient
+    ) public payable oracleOnly {
+        Event storage e = events[eventId];
+        require(e.isActive, "Event is not active");
+        require(quantity > 0, "Invalid ticket quantity");
+        require(
+            e.ticketsSold + quantity <= e.totalTickets,
+            "Not enough tickets available"
+        );
+        require(
+            msg.value == e.ticketPrice * quantity,
+            "Incorrect Ether value sent"
+        );
+
+        e.ticketsSold += quantity;
+
+        // Mint tickets to the specified recipient (not msg.sender)
+        mintTickets(eventId, quantity, recipient);
+
+        emit TicketsPurchased(eventId, recipient, quantity);
+    }
+
     // Mint tickets
     function mintTickets(
         uint256 eventId,
