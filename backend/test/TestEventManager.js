@@ -29,10 +29,10 @@ describe("TicketNFT", function () {
 describe("EventManager", function () {
   let eventManager;
   let ticketNFT;
-  let owner, organiser, buyer, otherUser;
+  let owner, organiser, oracle, buyer, otherUser;
 
   beforeEach(async function () {
-    [owner, organiser, buyer, otherUser] = await ethers.getSigners();
+    [owner, organiser, oracle, buyer, otherUser] = await ethers.getSigners();
 
     // Deploy TicketNFT contract
     const TicketNFT = await ethers.getContractFactory("TicketNFT");
@@ -49,6 +49,9 @@ describe("EventManager", function () {
 
     // Set EventManager as authorized to mint tickets
     await ticketNFT.transferOwnership(await eventManager.getAddress());
+
+    // Set oracle address
+    await eventManager.setOracle(oracle.address);
   });
 
   describe("Event Creation", function () {
@@ -172,8 +175,8 @@ describe("EventManager", function () {
     });
 
     it("Should reject purchase for inactive event", async function () {
-      // Close the event first
-      await eventManager.connect(organiser).closeEvent(1);
+      // Close the event first (using oracle)
+      await eventManager.connect(oracle).closeEvent(1);
 
       const quantity = 1;
       const ticketPrice = ethers.parseEther("0.1");
@@ -199,8 +202,8 @@ describe("EventManager", function () {
         );
     });
 
-    it("Should allow organiser to close their event", async function () {
-      const tx = await eventManager.connect(organiser).closeEvent(1);
+    it("Should allow oracle to close event", async function () {
+      const tx = await eventManager.connect(oracle).closeEvent(1);
 
       await expect(tx).to.emit(eventManager, "EventClosed").withArgs(1);
 
@@ -208,10 +211,16 @@ describe("EventManager", function () {
       expect(event.isActive).to.equal(false);
     });
 
-    it("Should reject non-organiser from closing event", async function () {
+    it("Should reject non-oracle from closing event", async function () {
+      await expect(
+        eventManager.connect(organiser).closeEvent(1)
+      ).to.be.revertedWith("Not the oracle");
+    });
+
+    it("Should reject other users from closing event", async function () {
       await expect(
         eventManager.connect(otherUser).closeEvent(1)
-      ).to.be.revertedWith("Not the event organiser");
+      ).to.be.revertedWith("Not the oracle");
     });
   });
 
@@ -232,6 +241,41 @@ describe("EventManager", function () {
       expect(await eventManager.ticketNFTAddress()).to.equal(
         await newTicketNFTInstance.getAddress()
       );
+    });
+
+    it("Should set oracle address", async function () {
+      const newOracle = otherUser.address;
+
+      await eventManager.setOracle(newOracle);
+
+      expect(await eventManager.oracle()).to.equal(newOracle);
+    });
+
+    it("Should allow new oracle to close events", async function () {
+      const newOracle = otherUser;
+
+      // Set new oracle
+      await eventManager.setOracle(newOracle.address);
+
+      // Create an event
+      await eventManager
+        .connect(organiser)
+        .createEvent(
+          "Test Event",
+          "Test Venue",
+          Math.floor(Date.now() / 1000) + 86400,
+          ethers.parseEther("0.1"),
+          100
+        );
+
+      // New oracle should be able to close event
+      await expect(eventManager.connect(newOracle).closeEvent(1)).to.not.be
+        .reverted;
+
+      // Old oracle should be rejected
+      await expect(
+        eventManager.connect(oracle).closeEvent(1)
+      ).to.be.revertedWith("Not the oracle");
     });
 
     it("Should reject minting when TicketNFT address not set", async function () {
