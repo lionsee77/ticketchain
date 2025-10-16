@@ -8,7 +8,7 @@ interface ITicketNFT {
 contract EventManager {
     struct Event {
         uint256 id;
-        address organizer;
+        address organiser;
         string name;
         string venue;
         uint256 date;
@@ -22,7 +22,7 @@ contract EventManager {
     uint256 public eventCounter; // Counter for event IDs
     address public ticketNFTAddress; // Address of the TicketNFT contract
 
-    event EventCreated(uint256 eventId, string name, address organizer);
+    event EventCreated(uint256 eventId, string name, address organiser);
     event TicketsPurchased(uint256 eventId, address buyer, uint256 quantity);
     event EventClosed(uint256 eventId);
 
@@ -31,11 +31,11 @@ contract EventManager {
         ticketNFTAddress = _ticketNFTAddress;
     }
 
-    // Modifier to restrict access to event organizers
+    // Modifier to restrict access to event organisers
     modifier organiserOnly(uint256 eventId) {
         require(
-            events[eventId].organizer == msg.sender,
-            "Not the event organizer"
+            events[eventId].organiser == msg.sender,
+            "Not the event organiser"
         );
         _;
     }
@@ -104,5 +104,21 @@ contract EventManager {
         Event storage e = events[eventId];
         e.isActive = false;
         emit EventClosed(eventId);
+    }
+
+    function originalPrice(uint256 eventId) external view returns (uint256) {
+        return events[eventId].ticketPrice;
+    }
+
+    function organiser(uint256 eventId) external view returns (address) {
+        return events[eventId].organiser;
+    }
+
+    function eventEnd(uint256 eventId) external view returns (uint256) {
+        return events[eventId].date;
+    }
+
+    function eventIsActive(uint256 eventId) external view returns (bool) {
+        return events[eventId].isActive;
     }
 }

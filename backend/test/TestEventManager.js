@@ -29,10 +29,10 @@ describe("TicketNFT", function () {
 describe("EventManager", function () {
   let eventManager;
   let ticketNFT;
-  let owner, organizer, buyer, otherUser;
+  let owner, organiser, buyer, otherUser;
 
   beforeEach(async function () {
-    [owner, organizer, buyer, otherUser] = await ethers.getSigners();
+    [owner, organiser, buyer, otherUser] = await ethers.getSigners();
 
     // Deploy TicketNFT contract
     const TicketNFT = await ethers.getContractFactory("TicketNFT");
@@ -60,17 +60,17 @@ describe("EventManager", function () {
       const totalTickets = 100;
 
       const tx = await eventManager
-        .connect(organizer)
+        .connect(organiser)
         .createEvent(eventName, venue, date, ticketPrice, totalTickets);
 
       await expect(tx)
         .to.emit(eventManager, "EventCreated")
-        .withArgs(1, eventName, organizer.address);
+        .withArgs(1, eventName, organiser.address);
 
       // Verify event details
       const event = await eventManager.events(1);
       expect(event.id).to.equal(1);
-      expect(event.organizer).to.equal(organizer.address);
+      expect(event.organiser).to.equal(organiser.address);
       expect(event.name).to.equal(eventName);
       expect(event.venue).to.equal(venue);
       expect(event.date).to.equal(date);
@@ -82,7 +82,7 @@ describe("EventManager", function () {
 
     it("Should increment event counter", async function () {
       await eventManager
-        .connect(organizer)
+        .connect(organiser)
         .createEvent(
           "Event 1",
           "Venue 1",
@@ -92,7 +92,7 @@ describe("EventManager", function () {
         );
 
       await eventManager
-        .connect(organizer)
+        .connect(organiser)
         .createEvent(
           "Event 2",
           "Venue 2",
@@ -109,7 +109,7 @@ describe("EventManager", function () {
     beforeEach(async function () {
       // Create an event first
       await eventManager
-        .connect(organizer)
+        .connect(organiser)
         .createEvent(
           "Test Event",
           "Test Venue",
@@ -173,7 +173,7 @@ describe("EventManager", function () {
 
     it("Should reject purchase for inactive event", async function () {
       // Close the event first
-      await eventManager.connect(organizer).closeEvent(1);
+      await eventManager.connect(organiser).closeEvent(1);
 
       const quantity = 1;
       const ticketPrice = ethers.parseEther("0.1");
@@ -189,7 +189,7 @@ describe("EventManager", function () {
   describe("Event Management", function () {
     beforeEach(async function () {
       await eventManager
-        .connect(organizer)
+        .connect(organiser)
         .createEvent(
           "Test Event",
           "Test Venue",
@@ -199,8 +199,8 @@ describe("EventManager", function () {
         );
     });
 
-    it("Should allow organizer to close their event", async function () {
-      const tx = await eventManager.connect(organizer).closeEvent(1);
+    it("Should allow organiser to close their event", async function () {
+      const tx = await eventManager.connect(organiser).closeEvent(1);
 
       await expect(tx).to.emit(eventManager, "EventClosed").withArgs(1);
 
@@ -208,10 +208,10 @@ describe("EventManager", function () {
       expect(event.isActive).to.equal(false);
     });
 
-    it("Should reject non-organizer from closing event", async function () {
+    it("Should reject non-organiser from closing event", async function () {
       await expect(
         eventManager.connect(otherUser).closeEvent(1)
-      ).to.be.revertedWith("Not the event organizer");
+      ).to.be.revertedWith("Not the event organiser");
     });
   });
 
@@ -242,7 +242,7 @@ describe("EventManager", function () {
 
       // Create event
       await newEventManager
-        .connect(organizer)
+        .connect(organiser)
         .createEvent(
           "Test Event",
           "Test Venue",
