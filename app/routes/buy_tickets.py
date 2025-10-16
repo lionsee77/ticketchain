@@ -25,8 +25,9 @@ async def buy_tickets(request: BuyTicketsRequest):
                 status_code=400, detail="Quantity must be greater than 0"
             )
 
-        if not Web3.is_address(request.buyer_address):
-            raise HTTPException(status_code=400, detail="Invalid buyer address")
+        # Validate user account index
+        if request.user_account not in range(10):  # 0-9
+            raise HTTPException(status_code=400, detail="User account must be 0-9")
 
         # Get event details to calculate total price
         try:
@@ -58,16 +59,30 @@ async def buy_tickets(request: BuyTicketsRequest):
         # Calculate total price
         total_price = ticket_price * request.quantity
 
-        # Use buyTicketsFor function - oracle pays, user receives tickets directly
-        function_call = web3_manager.event_manager.functions.buyTicketsFor(
-            request.event_id, request.quantity, request.buyer_address
+        # Get user account for this purchase
+        user_account = web3_manager.get_user_account(request.user_account)
+        user_address = user_account.address
+
+        # Check user has enough ETH
+        user_balance = web3_manager.get_account_balance(user_address)
+        if user_balance < total_price:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient balance. Need {web3_manager.w3.from_wei(total_price, 'ether')} ETH, have {web3_manager.w3.from_wei(user_balance, 'ether')} ETH",
+            )
+
+        # Use regular buyTickets function - user pays and receives tickets directly
+        function_call = web3_manager.event_manager.functions.buyTickets(
+            request.event_id, request.quantity
         )
 
-        # Build and send the transaction
-        txn = web3_manager.build_transaction(function_call, gas=500000)
+        # Build and send the transaction from user account
+        txn = web3_manager.build_user_transaction(
+            function_call, user_account, gas=500000
+        )
         txn["value"] = total_price
 
-        tx_hash = web3_manager.sign_and_send_transaction(txn)
+        tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account)
 
         return {
             "success": True,
@@ -76,9 +91,9 @@ async def buy_tickets(request: BuyTicketsRequest):
             "quantity": request.quantity,
             "total_price_wei": total_price,
             "total_price_eth": web3_manager.w3.from_wei(total_price, "ether"),
-            "buyer_address": request.buyer_address,
-            "oracle_address": web3_manager.oracle_account.address,
-            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id} and minted directly to {request.buyer_address}",
+            "buyer_address": user_address,
+            "user_account_index": request.user_account,
+            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User account {request.user_account} paid and received NFTs.",
         }
 
     except HTTPException:
@@ -136,4 +151,35 @@ async def get_event_details(event_id: int):
     except Exception as e:
         raise HTTPException(
             status_code=500, detail=f"Failed to get event details: {str(e)}"
+        )
+
+
+@router.get("/accounts")
+async def get_test_accounts():
+    """Get Hardhat test account information for development"""
+    try:
+        accounts_info = []
+        for i in range(10):  # Show first 10 accounts
+            address = web3_manager.get_user_address(i)
+            balance = web3_manager.get_account_balance(address)
+            balance_eth = web3_manager.w3.from_wei(balance, "ether")
+
+            accounts_info.append(
+                {
+                    "index": i,
+                    "address": address,
+                    "balance_wei": balance,
+                    "balance_eth": float(balance_eth),
+                }
+            )
+
+        return {
+            "accounts": accounts_info,
+            "network": "localhost:8545",
+            "note": "These are Hardhat test accounts for development only",
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500, detail=f"Failed to get account info: {str(e)}"
         )

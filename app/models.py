@@ -12,4 +12,4 @@ class CreateEventRequest(BaseModel):
 class BuyTicketsRequest(BaseModel):
     event_id: int
     quantity: int
-    buyer_address: str  # Address of the ticket buyer
+    user_account: int  # Hardhat test account index (0-19)

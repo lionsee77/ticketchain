@@ -34,20 +34,38 @@ Server runs at `http://localhost:8000` | Docs at `http://localhost:8000/docs`
 
 ### Events
 
-- `POST /events/create` - Create new event
+- `POST /events/create` - Create new event (oracle only)
 - `GET /tickets/event/{id}` - Get event details
 
 ### Tickets
 
-- `POST /tickets/buy` - Buy tickets (oracle pays, user receives NFTs)
+- `POST /tickets/buy` - Buy tickets (user pays directly, receives NFTs)
+- `GET /tickets/accounts` - View Hardhat test account balances
 
 ## Architecture
 
-**Oracle Pattern**: API uses oracle account to sign transactions while minting tickets directly to user wallets.
+**User-Direct Payment**: Users pay with their own ETH and receive ticket NFTs directly.
 
-- Oracle handles gas fees and transaction complexity
-- Users receive ticket NFTs without needing crypto
+- Each user uses a Hardhat test account (index 0-9)
+- Users pay ticket costs + gas fees from their account
+- NFTs are minted directly to user's wallet
 - Single atomic transaction per purchase
+
+### Test Account Usage
+
+Available accounts: 0-9 (each starts with 10,000 ETH)
+
+```bash
+# User account 1 buys 2 tickets
+curl -X POST "http://localhost:8000/tickets/buy" \
+  -H "Content-Type: application/json" \
+  -d '{"event_id": 1, "quantity": 2, "user_account": 1}'
+
+# Check account balances
+curl http://localhost:8000/tickets/accounts
+```
+
+**Note**: Account 0 is reserved for oracle operations (event creation).
 
 ## Development
 
@@ -57,6 +75,9 @@ Server runs at `http://localhost:8000` | Docs at `http://localhost:8000/docs`
 
 # Check API documentation
 curl http://localhost:8000/docs
+
+# Monitor user balances during testing
+curl http://localhost:8000/tickets/accounts | jq '.accounts[] | {index, balance_eth}'
 ```
 
-**Contract Dependencies**: Requires deployed EventManager and TicketNFT contracts with oracle permissions configured.
+**Contract Dependencies**: Requires deployed EventManager and TicketNFT contracts. Oracle account (index 0) needs permissions for event creation.
