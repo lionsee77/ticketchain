@@ -13,6 +13,69 @@ lerna-debug.log*
 .env.*
 !.env.example
 
+# --- Python ---
+# Virtual environments
+.venv/
+venv/
+env/
+ENV/
+app/.venv/
+app/venv/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+MANIFEST
+
+# Python package managers
+pip-log.txt
+pip-delete-this-directory.txt
+.tox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+.hypothesis/
+.pytest_cache/
+.mypy_cache/
+.dmypy.json
+dmypy.json
+
+# UV (Python package manager)
+uv.lock
+.uv/
+app/uv.lock
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# IPython
+profile_default/
+ipython_config.py
+
+# pyenv
+.python-version
+
 # --- Hardhat-specific ---
 backend/artifacts/
 backend/cache/
@@ -20,6 +83,13 @@ backend/typechain-types/
 backend/coverage/
 backend/ignition/deployments/
 backend/deployments/
+
+# --- Python app generated files ---
+# Keep ABI files but ignore other generated content
+app/__pycache__/
+app/*.pyc
+app/.pytest_cache/
+app/htmlcov/
 
 # --- OS / Editor cruft ---
 .DS_Store
