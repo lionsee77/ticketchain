@@ -10,13 +10,11 @@ router = APIRouter(prefix="/tickets", tags=["tickets"])
 @router.post("/buy")
 async def buy_tickets(request: BuyTicketsRequest):
     try:
-        # Check Web3 connection
         if not web3_manager.is_connected():
             raise HTTPException(
                 status_code=503, detail="Blockchain connection unavailable"
             )
 
-        # Validate inputs
         if request.event_id <= 0:
             raise HTTPException(status_code=400, detail="Invalid event ID")
 
@@ -25,7 +23,6 @@ async def buy_tickets(request: BuyTicketsRequest):
                 status_code=400, detail="Quantity must be greater than 0"
             )
 
-        # Validate user account index
         if request.user_account not in range(10):  # 0-9
             raise HTTPException(status_code=400, detail="User account must be 0-9")
 
@@ -106,7 +103,6 @@ async def buy_tickets(request: BuyTicketsRequest):
 async def get_event_details(event_id: int):
     """Get details of a specific event"""
     try:
-        # Check Web3 connection
         if not web3_manager.is_connected():
             raise HTTPException(
                 status_code=503, detail="Blockchain connection unavailable"
@@ -152,6 +148,24 @@ async def get_event_details(event_id: int):
         raise HTTPException(
             status_code=500, detail=f"Failed to get event details: {str(e)}"
         )
+
+# need to link NFT contract to web3 first
+
+# @router.post("/ticket/{ticket_id}/use", summary="Mark a ticket NFT as used (owner-only)")
+# def mark_ticket_used(ticket_id: int):
+#     try:
+#         if not web3_manager.is_connected():
+#             raise HTTPException(status_code=503, detail="Blockchain connection unavailable")
+
+#         if ticket_id <= 0:
+#             raise HTTPException(status_code=400, detail="Invalid ticket ID")
+        
+#     # update here
+
+#     except HTTPException:
+#         raise
+#     except Exception as e:
+#         raise HTTPException(status_code=500, detail=f"Failed to mark ticket as Used: {str(e)}")
 
 
 @router.get("/accounts")

@@ -22,6 +22,9 @@ interface IEventManager {
     function eventIsActive(uint256 eventId) external view returns (bool);
 }
 
+
+// NOT AN ESCROW
+// Sellers maintain ownership of their ticket but grants ResaleMarket permission to trfr token when buyer wants to buy the Listing
 contract ResaleMarket is ReentrancyGuard, Ownable {
     using Address for address payable; // for sendValue
     struct Listing {
