@@ -38,6 +38,7 @@ class Config:
         required_vars = [
             ("ORACLE_PRIVATE_KEY", cls.ORACLE_PRIVATE_KEY),
             ("EVENT_MANAGER_ADDRESS", cls.EVENT_MANAGER_ADDRESS),
+            ("RESALE_MARKET_ADDRESS", cls.RESALE_MARKET_ADDRESS),
         ]
 
         missing_vars = []

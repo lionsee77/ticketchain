@@ -1,0 +1,135 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Build and start services
+        run: |
+          echo "Building Docker Compose services..."
+          docker-compose up --build --detach
+
+      - name: Wait for services to be ready
+        run: |
+          echo "Waiting for services to start..."
+          # Wait for blockchain to be healthy
+          timeout 180s bash -c 'until docker-compose ps blockchain | grep -q "healthy"; do echo "Waiting for blockchain..."; sleep 5; done'
+
+          # Wait for API to respond
+          timeout 60s bash -c 'until curl -f http://localhost:8000/; do echo "Waiting for API..."; sleep 2; done'
+
+          echo "All services are ready!"
+
+      - name: Check service status
+        run: |
+          echo "=== Docker Compose Status ==="
+          docker-compose ps
+
+          echo "=== API Health Check ==="
+          curl -f http://localhost:8000/
+
+          echo "=== Blockchain RPC Check ==="
+          curl -f http://localhost:8545 -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
+
+      - name: Test API Endpoints
+        run: |
+          echo "=== Testing Create Event Endpoint ==="
+
+          # Test 1: Create an event
+          echo "Creating test event..."
+          CREATE_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/create" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "GitHub Actions Test Concert",
+              "venue": "CI/CD Arena", 
+              "date": 1735689600,
+              "price": 1000000000000000000,
+              "total_tickets": 50
+            }')
+
+          echo "Create Event Response: $CREATE_RESPONSE"
+
+          # Check if creation was successful
+          if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Event creation successful"
+          else
+            echo "❌ Event creation failed"
+            exit 1
+          fi
+
+          echo "=== Testing Buy Tickets Endpoint ==="
+
+          # Test 2: Buy tickets
+          echo "Buying tickets..."
+          BUY_RESPONSE=$(curl -s -X POST "http://localhost:8000/tickets/buy" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "event_id": 1,
+              "quantity": 2,
+              "user_account": 1
+            }')
+
+          echo "Buy Tickets Response: $BUY_RESPONSE"
+
+          # Check if ticket purchase was successful
+          if echo "$BUY_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Ticket purchase successful"
+          else
+            echo "❌ Ticket purchase failed"
+            exit 1
+          fi
+
+          echo "=== Testing Error Handling ==="
+
+          # Test 3: Invalid event creation (negative price)
+          echo "Testing invalid event creation..."
+          INVALID_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/create" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "name": "Invalid Event",
+              "venue": "Test Venue",
+              "date": 1735689600,
+              "price": -100,
+              "total_tickets": 10
+            }')
+
+          echo "Invalid Event Response: $INVALID_RESPONSE"
+
+          # Should return error for negative price
+          if echo "$INVALID_RESPONSE" | grep -q '"detail"'; then
+            echo "✅ Error handling working correctly"
+          else
+            echo "❌ Error handling not working"
+            exit 1
+          fi
+
+      - name: Check container logs on failure
+        if: failure()
+        run: |
+          echo "=== API Container Logs ==="
+          docker-compose logs api
+
+          echo "=== Blockchain Container Logs ==="
+          docker-compose logs blockchain
+
+          echo "=== Redis Container Logs ==="
+          docker-compose logs redis
+
+      - name: Cleanup
+        if: always()
+        run: |
+          echo "Cleaning up..."
+          docker-compose down --volumes --remove-orphans
+          docker system prune -f
