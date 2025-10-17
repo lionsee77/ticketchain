@@ -3,41 +3,63 @@ const path = require("path");
 
 async function exportABI() {
   try {
-    console.log("Exporting contract ABI...");
+    console.log("Exporting contract ABIs...");
 
-    // Source ABI file from compilation artifacts
-    const eventManagerArtifact = path.join(
-      __dirname,
-      "../artifacts/contracts/EventManager.sol/EventManager.json"
-    );
-
-    if (!fs.existsSync(eventManagerArtifact)) {
-      throw new Error("EventManager artifact not found. Run deployment first.");
-    }
-
-    // Read the compiled artifact
-    const artifact = JSON.parse(fs.readFileSync(eventManagerArtifact, "utf8"));
-    const abi = artifact.abi;
-
-    // Export directories
-    const exportPaths = [
-      path.join(__dirname, "../shared/EventManagerABI.json"), // Shared volume
-      path.join(__dirname, "../EventManagerABI.json"), // Local backup
+    // Contract artifacts to export
+    const contractsToExport = [
+      {
+        name: "EventManager",
+        artifactPath: path.join(
+          __dirname,
+          "../artifacts/contracts/EventManager.sol/EventManager.json"
+        ),
+        outputFile: "EventManagerABI.json",
+      },
+      {
+        name: "ResaleMarket",
+        artifactPath: path.join(
+          __dirname,
+          "../artifacts/contracts/ResaleMarket.sol/ResaleMarket.json"
+        ),
+        outputFile: "ResaleMarketABI.json",
+      },
     ];
 
     // Ensure shared directory exists
-    const sharedDir = path.dirname(exportPaths[0]);
+    const sharedDir = path.join(__dirname, "../shared");
     if (!fs.existsSync(sharedDir)) {
       fs.mkdirSync(sharedDir, { recursive: true });
     }
 
-    // Write ABI to both locations
-    exportPaths.forEach((exportPath) => {
-      fs.writeFileSync(exportPath, JSON.stringify(abi, null, 2));
-      console.log(`✓ ABI exported to: ${exportPath}`);
-    });
+    // Export each contract ABI
+    for (const contract of contractsToExport) {
+      if (!fs.existsSync(contract.artifactPath)) {
+        console.warn(
+          `⚠️  ${contract.name} artifact not found: ${contract.artifactPath}`
+        );
+        continue;
+      }
 
-    console.log("🎉 ABI export completed successfully!");
+      // Read the compiled artifact
+      const artifact = JSON.parse(
+        fs.readFileSync(contract.artifactPath, "utf8")
+      );
+      const abi = artifact.abi;
+
+      // Export paths (shared volume and local backup)
+      const exportPaths = [
+        path.join(sharedDir, contract.outputFile), // Shared volume
+        path.join(__dirname, "..", contract.outputFile), // Local backup
+      ];
+
+      // Write ABI to both locations
+      exportPaths.forEach((exportPath) => {
+        fs.writeFileSync(exportPath, JSON.stringify(abi, null, 2));
+        console.log(`✓ ${contract.name} ABI exported to: ${exportPath}`);
+      });
+    }
+
+    console.log("🎉 All contract ABIs exported successfully!");
   } catch (error) {
     console.error("❌ ABI export failed:", error.message);
     process.exit(1);
