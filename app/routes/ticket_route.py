@@ -99,56 +99,6 @@ async def buy_tickets(request: BuyTicketsRequest):
         raise HTTPException(status_code=500, detail=f"Failed to buy tickets: {str(e)}")
 
 
-@router.get("/event/{event_id}")
-async def get_event_details(event_id: int):
-    """Get details of a specific event"""
-    try:
-        if not web3_manager.is_connected():
-            raise HTTPException(
-                status_code=503, detail="Blockchain connection unavailable"
-            )
-
-        if event_id <= 0:
-            raise HTTPException(status_code=400, detail="Invalid event ID")
-
-        # Get event details
-        try:
-            event = web3_manager.event_manager.functions.events(event_id).call()
-            (
-                event_id_ret,
-                organiser,
-                name,
-                venue,
-                date,
-                ticket_price,
-                total_tickets,
-                tickets_sold,
-                is_active,
-            ) = event
-        except Exception as e:
-            raise HTTPException(status_code=404, detail=f"Event not found: {str(e)}")
-
-        return {
-            "event_id": event_id_ret,
-            "organiser": organiser,
-            "name": name,
-            "venue": venue,
-            "date": date,
-            "ticket_price_wei": ticket_price,
-            "ticket_price_eth": web3_manager.w3.from_wei(ticket_price, "ether"),
-            "total_tickets": total_tickets,
-            "tickets_sold": tickets_sold,
-            "tickets_available": total_tickets - tickets_sold,
-            "is_active": is_active,
-        }
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get event details: {str(e)}"
-        )
-
 # need to implement method in event manager to mark ticket as used
 
 # @router.post("/ticket/{ticket_id}/use", summary="Mark a ticket NFT as used (owner-only)")
@@ -167,33 +117,3 @@ async def get_event_details(event_id: int):
 #     except Exception as e:
 #         raise HTTPException(status_code=500, detail=f"Failed to mark ticket as Used: {str(e)}")
 
-
-@router.get("/accounts")
-async def get_test_accounts():
-    """Get Hardhat test account information for development"""
-    try:
-        accounts_info = []
-        for i in range(10):  # Show first 10 accounts
-            address = web3_manager.get_user_address(i)
-            balance = web3_manager.get_account_balance(address)
-            balance_eth = web3_manager.w3.from_wei(balance, "ether")
-
-            accounts_info.append(
-                {
-                    "index": i,
-                    "address": address,
-                    "balance_wei": balance,
-                    "balance_eth": float(balance_eth),
-                }
-            )
-
-        return {
-            "accounts": accounts_info,
-            "network": "localhost:8545",
-            "note": "These are Hardhat test accounts for development only",
-        }
-
-    except Exception as e:
-        raise HTTPException(
-            status_code=500, detail=f"Failed to get account info: {str(e)}"
-        )
