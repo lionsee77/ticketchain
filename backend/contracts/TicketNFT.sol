@@ -6,7 +6,7 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 
 contract TicketNFT is ERC721, Ownable {
     mapping(uint256 => bool) public used;
-    mapping(uint256 => uint256) public ticketToEvent;
+    mapping(uint256 => uint256) public ticketToEvent; // which event does the ticket belong to
     uint256 public nextTokenId = 1;
 
     event TicketUsed(uint256 ticketId);
@@ -17,6 +17,7 @@ contract TicketNFT is ERC721, Ownable {
         address initialOwner
     ) ERC721(name, symbol) Ownable(initialOwner) {}
 
+    // Event owner calls mint to create ticket NFT for sale to public
     function mint(
         address to,
         uint256 eventId
@@ -28,11 +29,13 @@ contract TicketNFT is ERC721, Ownable {
         return tokenId;
     }
 
+    // Event owner calls markAsUsed to redeem the ticket when attendee enters the concert
     function markAsUsed(uint256 ticketId) external onlyOwner {
         used[ticketId] = true;
         emit TicketUsed(ticketId);
     }
 
+    // Attendees can call isUsed to check if their ticket has been redeemed before
     function isUsed(uint256 ticketId) external view returns (bool) {
         return used[ticketId];
     }
