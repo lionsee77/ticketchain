@@ -19,41 +19,6 @@ jobs:
           driver-opts: |
             image=moby/buildkit:buildx-stable-1
 
-      # Cache Python dependencies (uv)
-      - name: Cache Python dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.cache/uv
-            app/.venv
-          key: ${{ runner.os }}-python-${{ hashFiles('app/pyproject.toml', 'app/uv.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-python-
-
-      # Cache Node.js dependencies
-      - name: Cache Node.js dependencies
-        uses: actions/cache@v4
-        with:
-          path: |
-            ~/.npm
-            backend/node_modules
-          key: ${{ runner.os }}-node-${{ hashFiles('backend/package-lock.json') }}
-          restore-keys: |
-            ${{ runner.os }}-node-
-
-      # Show cache information for debugging
-      - name: Show cache information
-        run: |
-          echo "=== Cache Information ==="
-          echo "Python cache directory:"
-          ls -la ~/.cache/uv 2>/dev/null || echo "No uv cache found"
-          echo "Python venv directory:"
-          ls -la app/.venv 2>/dev/null || echo "No venv found"
-          echo "Node.js cache directory:"
-          ls -la ~/.npm 2>/dev/null || echo "No npm cache found"
-          echo "Node.js modules directory:"
-          ls -la backend/node_modules 2>/dev/null || echo "No node_modules found"
-
       - name: Create environment file
         run: |
           echo "Creating .env file for API service..."
@@ -72,14 +37,21 @@ jobs:
 
       - name: Build and start services
         run: |
-          echo "Building Docker Compose services with cache..."
-          # Enable Docker BuildKit for caching
+          echo "Building Docker Compose services with layer caching..."
+          # Enable Docker BuildKit for better caching
           export DOCKER_BUILDKIT=1
           export COMPOSE_DOCKER_CLI_BUILD=1
 
-          # Build with cache
-          docker compose build --parallel
+          # Show Docker system info
+          docker system df
+
+          # Build with inline cache for better performance
+          docker compose build --parallel --build-arg BUILDKIT_INLINE_CACHE=1
           docker compose up --detach
+
+          # Show cache usage after build
+          echo "=== Docker system usage after build ==="
+          docker system df
 
       - name: Wait for services to be ready
         run: |
