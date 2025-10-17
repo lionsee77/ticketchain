@@ -62,9 +62,7 @@ coverage.xml
 dmypy.json
 
 # UV (Python package manager)
-uv.lock
 .uv/
-app/uv.lock
 
 # Jupyter Notebook
 .ipynb_checkpoints

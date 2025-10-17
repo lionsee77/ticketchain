@@ -15,17 +15,49 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          driver-opts: |
+            image=moby/buildkit:buildx-stable-1
+
+      - name: Create environment file
+        run: |
+          echo "Creating .env file for API service..."
+          cat > app/.env << EOF
+          # CI/CD Environment Configuration
+          ORACLE_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+          RPC_URL=http://blockchain:8545
+          EVENT_MANAGER_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
+          RESALE_MARKET_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+          REDIS_URL=redis://redis:6379
+          SECRET_KEY=github-actions-test-key
+          EOF
+          echo "Environment file created successfully"
+          echo "Contents of .env file:"
+          cat app/.env
 
       - name: Build and start services
         run: |
-          echo "Building Docker Compose services..."
-          docker-compose up --build --detach
+          echo "Building Docker Compose services with layer caching..."
+          # Enable Docker BuildKit for better caching
+          export DOCKER_BUILDKIT=1
+          export COMPOSE_DOCKER_CLI_BUILD=1
+
+          # Show Docker system info
+          docker system df
+
+          # Build with inline cache for better performance
+          docker compose build --parallel --build-arg BUILDKIT_INLINE_CACHE=1
+          docker compose up --detach
+
+          # Show cache usage after build
+          echo "=== Docker system usage after build ==="
+          docker system df
 
       - name: Wait for services to be ready
         run: |
           echo "Waiting for services to start..."
           # Wait for blockchain to be healthy
-          timeout 180s bash -c 'until docker-compose ps blockchain | grep -q "healthy"; do echo "Waiting for blockchain..."; sleep 5; done'
+          timeout 180s bash -c 'until docker compose ps blockchain | grep -q "healthy"; do echo "Waiting for blockchain..."; sleep 5; done'
 
           # Wait for API to respond
           timeout 60s bash -c 'until curl -f http://localhost:8000/; do echo "Waiting for API..."; sleep 2; done'
@@ -35,7 +67,7 @@ jobs:
       - name: Check service status
         run: |
           echo "=== Docker Compose Status ==="
-          docker-compose ps
+          docker compose ps
 
           echo "=== API Health Check ==="
           curl -f http://localhost:8000/
@@ -119,17 +151,17 @@ jobs:
         if: failure()
         run: |
           echo "=== API Container Logs ==="
-          docker-compose logs api
+          docker compose logs api
 
           echo "=== Blockchain Container Logs ==="
-          docker-compose logs blockchain
+          docker compose logs blockchain
 
           echo "=== Redis Container Logs ==="
-          docker-compose logs redis
+          docker compose logs redis
 
       - name: Cleanup
         if: always()
         run: |
           echo "Cleaning up..."
-          docker-compose down --volumes --remove-orphans
+          docker compose down --volumes --remove-orphans
           docker system prune -f
