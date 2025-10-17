@@ -1,0 +1,56 @@
+version: '3.8'
+
+services:
+  # FastAPI Application
+  api:
+    build: 
+      context: ./app
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      - RPC_URL=http://blockchain:8545
+      - REDIS_URL=redis://redis:6379
+    volumes:
+      - ./app/.env:/app/.env:ro
+      - contracts-shared:/app/contracts:ro
+    depends_on:
+      blockchain:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    networks:
+      - ticketchain
+
+  # Hardhat Blockchain (existing)
+  blockchain:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "8545:8545"
+    volumes:
+      - contracts-shared:/app/shared
+    networks:
+      - ticketchain
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -f /app/shared/EventManagerABI.json && test -f /app/shared/ResaleMarketABI.json"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 60s
+
+  # Redis for session/caching
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6380:6379"
+    networks:
+      - ticketchain
+
+volumes:
+  contracts-shared:
+
+networks:
+  ticketchain:
+    driver: bridge

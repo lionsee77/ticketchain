@@ -12,9 +12,11 @@ class Config:
     RPC_URL = os.getenv("RPC_URL", "http://localhost:8545")
     ORACLE_PRIVATE_KEY = os.getenv("ORACLE_PRIVATE_KEY")
     EVENT_MANAGER_ADDRESS = os.getenv("EVENT_MANAGER_ADDRESS")
+    RESALE_MARKET_ADDRESS = os.getenv("RESALE_MARKET_ADDRESS")
 
-    # Contract ABI file path
+    # Contract ABI file paths
     EVENT_MANAGER_ABI_FILE = "EventManagerABI.json"
+    RESALE_MARKET_ABI_FILE = "ResaleMarketABI.json"
 
     # Blockchain settings
     DEFAULT_GAS = 300000

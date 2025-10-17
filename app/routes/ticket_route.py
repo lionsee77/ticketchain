@@ -149,7 +149,7 @@ async def get_event_details(event_id: int):
             status_code=500, detail=f"Failed to get event details: {str(e)}"
         )
 
-# need to link NFT contract to web3 first
+# need to implement method in event manager to mark ticket as used
 
 # @router.post("/ticket/{ticket_id}/use", summary="Mark a ticket NFT as used (owner-only)")
 # def mark_ticket_used(ticket_id: int):

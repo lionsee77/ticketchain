@@ -20,5 +20,9 @@
   },
   "dependencies": {
     "@openzeppelin/contracts": "^5.4.0"
+  },
+  "scripts": {
+    "start:docker": "npx hardhat node --config hardhat.config.docker.js",
+    "deploy:docker": "npx hardhat --network localhost run scripts/deploy.js"
   }
 }

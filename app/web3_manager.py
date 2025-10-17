@@ -45,29 +45,51 @@ class Web3Manager:
         self.oracle_account = self.w3.eth.account.from_key(config.ORACLE_PRIVATE_KEY)
 
         # Load contract ABI and initialize contract
-        self.event_manager_abi = self._load_contract_abi()
+        self.event_manager_abi = self._load_contract_abi("EventManager", config.EVENT_MANAGER_ABI_FILE)
+        self.resale_market_abi = self._load_contract_abi("ResaleMarket", config.RESALE_MARKET_ABI_FILE)
 
         if not config.EVENT_MANAGER_ADDRESS:
             raise ValueError("EVENT_MANAGER_ADDRESS is required")
+        
+        if not config.RESALE_MARKET_ADDRESS:
+            raise ValueError("RESALE_MARKET_ADDRESS is required")
 
         self.event_manager = self.w3.eth.contract(
             address=self.w3.to_checksum_address(config.EVENT_MANAGER_ADDRESS),
             abi=self.event_manager_abi,
         )
 
-    def _load_contract_abi(self):
-        """Load contract ABI from file"""
-        try:
-            with open(config.EVENT_MANAGER_ABI_FILE) as f:
-                return json.load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(
-                f"Contract ABI file not found: {config.EVENT_MANAGER_ABI_FILE}"
-            )
-        except json.JSONDecodeError:
-            raise ValueError(
-                f"Invalid JSON in ABI file: {config.EVENT_MANAGER_ABI_FILE}"
-            )
+    def _load_contract_abi(self, contract_name, fallback_filename):
+        """Generic method to load any contract ABI with shared volume priority"""
+        shared_abi_path = f"/app/contracts/{fallback_filename}"
+        abi_paths = [shared_abi_path, fallback_filename]
+
+        for i, abi_path in enumerate(abi_paths):
+            try:
+                with open(abi_path) as f:
+                    if i == 0:
+                        print(
+                            f"✅ Loaded {contract_name} ABI from SHARED VOLUME: {abi_path}"
+                        )
+                    else:
+                        print(
+                            f"⚠️  Loaded {contract_name} ABI from FALLBACK location: {abi_path}"
+                        )
+                    return json.load(f)
+            except FileNotFoundError:
+                if i == 0:
+                    print(
+                        f"❌ Shared volume {contract_name} ABI not found: {abi_path}, trying fallback..."
+                    )
+                continue
+            except json.JSONDecodeError:
+                raise ValueError(
+                    f"Invalid JSON in {contract_name} ABI file: {abi_path}"
+                )
+
+        raise FileNotFoundError(
+            f"{contract_name} ABI file not found in any of: {', '.join(abi_paths)}"
+        )
 
     def is_connected(self):
         """Check if Web3 is connected to the blockchain"""
