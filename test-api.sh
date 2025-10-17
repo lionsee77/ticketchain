@@ -35,11 +35,11 @@ info() {
 # Check if services are running
 info "Checking if services are running..."
 if ! curl -s http://localhost:8000/ > /dev/null; then
-    error "API service is not running. Please start with: docker-compose up"
+    error "API service is not running. Please start with: docker compose up"
 fi
 
 if ! curl -s http://localhost:8545 -X POST -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}' > /dev/null; then
-    error "Blockchain service is not running. Please start with: docker-compose up"
+    error "Blockchain service is not running. Please start with: docker compose up"
 fi
 
 success "All services are running"

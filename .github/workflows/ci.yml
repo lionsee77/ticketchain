@@ -19,13 +19,13 @@ jobs:
       - name: Build and start services
         run: |
           echo "Building Docker Compose services..."
-          docker-compose up --build --detach
+          docker compose up --build --detach
 
       - name: Wait for services to be ready
         run: |
           echo "Waiting for services to start..."
           # Wait for blockchain to be healthy
-          timeout 180s bash -c 'until docker-compose ps blockchain | grep -q "healthy"; do echo "Waiting for blockchain..."; sleep 5; done'
+          timeout 180s bash -c 'until docker compose ps blockchain | grep -q "healthy"; do echo "Waiting for blockchain..."; sleep 5; done'
 
           # Wait for API to respond
           timeout 60s bash -c 'until curl -f http://localhost:8000/; do echo "Waiting for API..."; sleep 2; done'
@@ -35,7 +35,7 @@ jobs:
       - name: Check service status
         run: |
           echo "=== Docker Compose Status ==="
-          docker-compose ps
+          docker compose ps
 
           echo "=== API Health Check ==="
           curl -f http://localhost:8000/
@@ -119,17 +119,17 @@ jobs:
         if: failure()
         run: |
           echo "=== API Container Logs ==="
-          docker-compose logs api
+          docker compose logs api
 
           echo "=== Blockchain Container Logs ==="
-          docker-compose logs blockchain
+          docker compose logs blockchain
 
           echo "=== Redis Container Logs ==="
-          docker-compose logs redis
+          docker compose logs redis
 
       - name: Cleanup
         if: always()
         run: |
           echo "Cleaning up..."
-          docker-compose down --volumes --remove-orphans
+          docker compose down --volumes --remove-orphans
           docker system prune -f
