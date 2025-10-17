@@ -5,6 +5,7 @@ import uvicorn
 from config import config
 from routes.event_route import router as event_router
 from routes.ticket_route import router as tickets_router
+from routes.account_route import router as account_router
 
 app = FastAPI(
     title="TicketChain API",
@@ -15,6 +16,7 @@ app = FastAPI(
 # Include routers
 app.include_router(event_router)
 app.include_router(tickets_router)
+app.include_router(account_router)
 
 
 @app.get("/")
