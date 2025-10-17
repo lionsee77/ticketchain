@@ -56,18 +56,32 @@ class Web3Manager:
         )
 
     def _load_contract_abi(self):
-        """Load contract ABI from file"""
-        try:
-            with open(config.EVENT_MANAGER_ABI_FILE) as f:
-                return json.load(f)
-        except FileNotFoundError:
-            raise FileNotFoundError(
-                f"Contract ABI file not found: {config.EVENT_MANAGER_ABI_FILE}"
-            )
-        except json.JSONDecodeError:
-            raise ValueError(
-                f"Invalid JSON in ABI file: {config.EVENT_MANAGER_ABI_FILE}"
-            )
+        """Load contract ABI from file - prioritize shared volume in Docker"""
+        # Try shared volume first (Docker setup)
+        shared_abi_path = "/app/contracts/EventManagerABI.json"
+        fallback_abi_path = config.EVENT_MANAGER_ABI_FILE
+        abi_paths = [shared_abi_path, fallback_abi_path]
+
+        for i, abi_path in enumerate(abi_paths):
+            try:
+                with open(abi_path) as f:
+                    if i == 0:
+                        print(f"✅ Loaded ABI from SHARED VOLUME: {abi_path}")
+                    else:
+                        print(f"⚠️  Loaded ABI from FALLBACK location: {abi_path}")
+                    return json.load(f)
+            except FileNotFoundError:
+                if i == 0:
+                    print(
+                        f"❌ Shared volume ABI not found: {abi_path}, trying fallback..."
+                    )
+                continue
+            except json.JSONDecodeError:
+                raise ValueError(f"Invalid JSON in ABI file: {abi_path}")
+
+        raise FileNotFoundError(
+            f"Contract ABI file not found in any of: {', '.join(abi_paths)}"
+        )
 
     def is_connected(self):
         """Check if Web3 is connected to the blockchain"""
