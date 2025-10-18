@@ -4,7 +4,7 @@ from web3_manager import web3_manager
 from web3 import Web3
 
 # Initialize router
-router = APIRouter(prefix="/tickets", tags=["tickets"])
+router = APIRouter(prefix="/market", tags=["market"])
 
 
 

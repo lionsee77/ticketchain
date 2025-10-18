@@ -62,6 +62,10 @@ class Web3Manager:
             address=self.w3.to_checksum_address(config.EVENT_MANAGER_ADDRESS),
             abi=self.event_manager_abi,
         )
+        self.market_manager = self.w3.eth.contract(
+            address=self.w3.to_checksum_address(config.RESALE_MARKET_ADDRESS),
+            abi=self.resale_market_abi,
+        )
 
     def _load_contract_abi(self, contract_name, fallback_filename):
         """Generic method to load any contract ABI with shared volume priority"""
