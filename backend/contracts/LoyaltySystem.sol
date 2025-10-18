@@ -19,7 +19,8 @@ contract LoyaltySystem is Ownable, ReentrancyGuard {
   event RateUpdated(uint256 oldRate, uint256 newRate);
   event SpenderSet(address spender, bool allowed);
   event PointsAwarded(address to, uint256 weiAmount, uint256 pointsMinted);
-  event PointsRedeemed(address from, uint256 pointsBurned, uint256 weiDiscount);
+  event PointsRedeemedTicket(address from, uint256 pointsBurned, uint256 weiDiscount);
+  event PointsRedeemedQueue(address from, uint256 pointsBurned);
 
   constructor(
     address initialOwner,
@@ -82,10 +83,10 @@ contract LoyaltySystem is Ownable, ReentrancyGuard {
     }
   }
 
-  // Redeem loyalty points (frontend to handle allowance)
-  function redeemPoints(address from, uint256 ticketWei) external nonReentrant 
+  // Redeem loyalty points for ticket purchase (frontend to handle allowance)
+  function redeemPointsTicket(address from, uint256 ticketWei) external nonReentrant 
     returns (uint256 pointsBurned, uint256 weiDiscount)
-  {
+    {
     require(isSpender[msg.sender], "Not authorised for redeeming loyalty points");
     require(from != address(0), "Invalid to address");
     require(ticketWei > 0, "Invalid transaction amount. Transaction amount should be greater than 0");
@@ -97,6 +98,17 @@ contract LoyaltySystem is Ownable, ReentrancyGuard {
     } else {
         weiDiscount = 0;
     }
-    emit PointsRedeemed(from, pointsBurned, weiDiscount);
-  }
+    emit PointsRedeemedTicket(from, pointsBurned, weiDiscount);
+    }
+
+  // Redeem loyalty points for queue priority
+  function redeemPointsQueue(address from, uint256 pointsAmt) external nonReentrant 
+    {
+    require(isSpender[msg.sender], "Not authorised for redeeming loyalty points");
+    require(from != address(0), "Invalid to address");
+    require(pointsAmt > 0, "Invalid redemption amount. Points amount should be greater than 0");
+    
+    points.burnFrom(from, pointsAmt);
+    emit PointsRedeemedQueue(from, pointsAmt);
+    }
 }
