@@ -54,7 +54,6 @@ async def create_event(request: CreateEventRequest):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create event: {str(e)}")
 
-
 @router.get("/all", summary="List all events")
 async def fetch_all_events():
     try:
@@ -63,7 +62,6 @@ async def fetch_all_events():
             raise HTTPException(
                 status_code=503, detail="Blockchain connection unavailable"
             )
-
         total_num_of_events = web3_manager.event_manager.functions.eventCounter().call()
         event_holder = []
         for i in range(1, total_num_of_events + 1):

@@ -43,6 +43,38 @@ async function main() {
   const resaleMarketAddress = await resaleMarket.getAddress();
   console.log("ResaleMarket deployed to:", resaleMarketAddress);
 
+  // Deploy LoyaltyPoint contract
+  console.log("\n=== Deploying LoyaltyPoint ===");
+  const LoyaltyPoint = await ethers.getContractFactory("LoyaltyPoint");
+  const loyaltyPoint = await LoyaltyPoint.deploy(
+    deployer.address, // initial owner
+    "TicketChain Points", // name
+    "TCP" // symbol
+  );
+  await loyaltyPoint.waitForDeployment();
+  const loyaltyPointAddress = await loyaltyPoint.getAddress();
+  console.log("LoyaltyPoint deployed to:", loyaltyPointAddress);
+
+  // Deploy LoyaltySystem contract
+  const pointsPerEtherHuman = process.env.POINTS_PER_ETHER || "3000";
+  const tokenDecimals = await loyaltyPoint.decimals();
+  const pointsPerEther = ethers.parseUnits(
+    pointsPerEtherHuman.toString(),
+    Number(tokenDecimals)
+  );
+
+  console.log("\n=== Deploying LoyaltySystem ===");
+  const LoyaltySystem = await ethers.getContractFactory("LoyaltySystem");
+  const loyaltySystem = await LoyaltySystem.deploy(
+    deployer.address, // initial owner
+    loyaltyPointAddress, // loyalty token
+    pointsPerEther // rate: points per 1 ETH
+  );
+  await loyaltySystem.waitForDeployment();
+  const loyaltySystemAddress = await loyaltySystem.getAddress();
+  console.log("LoyaltySystem deployed to:", loyaltySystemAddress);
+  console.log(`Initial rate: 1 ETH -> ${pointsPerEtherHuman} points`);
+
   // Set up contract connections
   console.log("\n=== Setting up contract connections ===");
 
@@ -61,10 +93,27 @@ async function main() {
   await eventManager.setOracle(deployer.address);
   console.log("✓ Oracle address set to:", deployer.address);
 
+  // Set LoyaltySystem the minter for LoyaltyPoint
+  console.log("Granting LoyaltySystem minter rights on LoyaltyPoint...");
+  await (await loyaltyPoint.setMinter(loyaltySystemAddress)).wait();
+  console.log("✓ Minter set to:", loyaltySystemAddress);
+
+  // Allow EventManager to trigger award/redeem in LoyaltySystem
+  console.log("Authorising EventManager as spender in LoyaltySystem...");
+  await (await loyaltySystem.setSpender(eventManagerAddress, true)).wait();
+  console.log("✓ Spender authorised:", eventManagerAddress);
+
+  // Set Loyalty System in Event Manager (TODO)
+  // console.log("Setting LoyaltySystem in EventManager...");
+  // await (await eventManager.setLoyaltySystem(loyaltySystemAddress)).wait();
+  // console.log("✓ LoyaltySystem set in EventManager");
+
   console.log("\n=== Deployment Summary ===");
   console.log("TicketNFT:", ticketNFTAddress);
   console.log("EventManager:", eventManagerAddress);
   console.log("ResaleMarket:", resaleMarketAddress);
+  console.log("LoyaltyPoint:", loyaltyPointAddress);
+  console.log("LoyaltySystem:", loyaltySystemAddress);
 
   // Save deployment addresses to a file for easy reference
   const deploymentInfo = {
@@ -74,6 +123,8 @@ async function main() {
       TicketNFT: ticketNFTAddress,
       EventManager: eventManagerAddress,
       ResaleMarket: resaleMarketAddress,
+      LoyaltyPoint: loyaltyPointAddress,
+      LoyaltySystem: loyaltySystemAddress
     },
     timestamp: new Date().toISOString(),
   };
