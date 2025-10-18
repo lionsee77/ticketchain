@@ -76,7 +76,7 @@ contract ResaleMarket is ReentrancyGuard, Ownable {
         royaltyBps = bps;
     }
 
-    // Seller lists a ticket. Must have approved market to transfer the NFT.
+    // Seller lists a ticket. Must also approve the market to transfer the NFT.
     function list(uint256 ticketId, uint256 price) external {
         require(ticket.ownerOf(ticketId) == msg.sender, "Not ticket owner");
         require(!ticket.isUsed(ticketId), "Ticket already used");
