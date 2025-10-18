@@ -7,6 +7,7 @@ router = APIRouter(prefix="/events", tags=["events"])
 
 
 @router.post("/create")
+# requires Unix timestamp obtain via CLI -> date -j -f "%d%m%Y" "20102026" "+%s"
 async def create_event(request: CreateEventRequest):
     try:
         # Check Web3 connection
