@@ -13,10 +13,14 @@ class Config:
     ORACLE_PRIVATE_KEY = os.getenv("ORACLE_PRIVATE_KEY")
     EVENT_MANAGER_ADDRESS = os.getenv("EVENT_MANAGER_ADDRESS")
     RESALE_MARKET_ADDRESS = os.getenv("RESALE_MARKET_ADDRESS")
+    LOYALTY_POINT_ADDRESS = os.getenv("LOYALTY_POINT_ADDRESS")
+    LOYALTY_SYSTEM_ADDRESS = os.getenv("LOYALTY_SYSTEM_ADDRESS")
 
     # Contract ABI file paths
     EVENT_MANAGER_ABI_FILE = "EventManagerABI.json"
     RESALE_MARKET_ABI_FILE = "ResaleMarketABI.json"
+    LOYALTY_POINT_ABI_FILE = "LoyaltyPointABI.json"
+    LOYALTY_SYSTEM_ABI_FILE = "LoyaltySystemABI.json"
 
     # Blockchain settings
     DEFAULT_GAS = 300000

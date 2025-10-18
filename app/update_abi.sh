@@ -100,6 +100,24 @@ else
 fi
 echo ""
 
+# Update LoyaltyPoint ABI
+echo "🔍 Checking for LoyaltyPoint ABI..."
+if [ -f "$BACKEND_DIR/artifacts/contracts/LoyaltyPoint.sol/LoyaltyPoint.json" ]; then
+    update_abi "LoyaltyPoint"
+else
+    echo "ℹ️  LoyaltyPoint ABI not found, skipping..."
+fi
+echo ""
+
+# Update LoyaltySystem ABI
+echo "🔍 Checking for LoyaltySystem ABI..."
+if [ -f "$BACKEND_DIR/artifacts/contracts/LoyaltySystem.sol/LoyaltySystem.json" ]; then
+    update_abi "LoyaltySystem"
+else
+    echo "ℹ️  LoyaltySystem ABI not found, skipping..."
+fi
+echo ""
+
 echo "🎉 ABI update completed!"
 echo ""
 echo "📋 Next steps:"

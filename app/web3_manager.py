@@ -51,6 +51,12 @@ class Web3Manager:
         self.resale_market_abi = self._load_contract_abi(
             "ResaleMarket", config.RESALE_MARKET_ABI_FILE
         )
+        self.loyalty_point_abi = self._load_contract_abi(
+            "LoyaltyPoint", config.LOYALTY_POINT_ABI_FILE
+        )
+        self.loyalty_system_abi = self._load_contract_abi(
+            "LoyaltySystem", config.LOYALTY_SYSTEM_ABI_FILE
+        )
 
         if not config.EVENT_MANAGER_ADDRESS:
             raise ValueError("EVENT_MANAGER_ADDRESS is required")
@@ -61,6 +67,14 @@ class Web3Manager:
         self.event_manager = self.w3.eth.contract(
             address=self.w3.to_checksum_address(config.EVENT_MANAGER_ADDRESS),
             abi=self.event_manager_abi,
+        )
+        self.loyalty_point = self.w3.eth.contract(
+            address=self.w3.to_checksum_address(config.LOYALTY_POINT_ADDRESS),
+            abi=self.loyalty_point_abi,
+        )
+        self.loyalty_system = self.w3.eth.contract(
+            address=self.w3.to_checksum_address(config.LOYALTY_SYSTEM_ADDRESS),
+            abi=self.loyalty_system_abi,
         )
 
     def _load_contract_abi(self, contract_name, fallback_filename):
@@ -179,6 +193,36 @@ class Web3Manager:
         tx_hash = self.w3.eth.send_raw_transaction(raw_tx)
         return tx_hash
 
+    def get_points_balance(self, user_address: str) -> int:
+        """Return LoyaltyPoint balance (token units) for a user."""
+        if not hasattr(self, "loyalty_point"):
+            raise RuntimeError("LoyaltyPoint contract not initialised")
+        return self.loyalty_point.functions.balanceOf(
+            self.w3.to_checksum_address(user_address)
+        ).call()
+
+    def get_points_allowance(self, owner: str) -> int:
+        """Allowance that 'owner' has granted to the LoyaltySystem."""
+        if not hasattr(self, "loyalty_point") or not hasattr(self, "loyalty_system"):
+            raise RuntimeError("Loyalty contracts not initialised")
+        return self.loyalty_point.functions.allowance(
+            self.w3.to_checksum_address(owner),
+            self.w3.to_checksum_address(self.loyalty_system.address),
+        ).call()
+
+    def preview_points_available(self, user_address: str, ticket_wei: int) -> int:
+        """How many points can be redeemed (partial up to 30%) for a given ticket price."""
+        if not hasattr(self, "loyalty_system"):
+            raise RuntimeError("LoyaltySystem contract not initialised")
+        return self.loyalty_system.functions.previewPointsAvailableForRedemption(
+            self.w3.to_checksum_address(user_address), int(ticket_wei)
+        ).call()
+
+    def quote_wei_from_points(self, point_units: int) -> int:
+        """Convert points -> wei using LoyaltySystem's current rate."""
+        if not hasattr(self, "loyalty_system"):
+            raise RuntimeError("LoyaltySystem contract not initialised")
+        return self.loyalty_system.functions.quoteWeiFromPoints(int(point_units)).call()
 
 # Create a singleton instance
 web3_manager = Web3Manager()
