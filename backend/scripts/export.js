@@ -23,6 +23,14 @@ async function exportABI() {
         ),
         outputFile: "ResaleMarketABI.json",
       },
+      {
+        name: "TicketNFT",
+        artifactPath: path.join(
+          __dirname,
+          "../artifacts/contracts/TicketNFT.sol/TicketNFT.json"
+        ),
+        outputFile: "TicketNFTABI.json",
+      }
     ];
 
     // Ensure shared directory exists
