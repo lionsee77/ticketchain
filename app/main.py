@@ -4,7 +4,7 @@ import uvicorn
 
 from config import config
 from routes.event_route import router as event_router
-from routes.ticket_route import router as tickets_router
+from routes.market_route import router as market_router
 from routes.account_route import router as account_router
 from routes.loyalty_route import router as loyalty_router
 
@@ -16,7 +16,7 @@ app = FastAPI(
 
 # Include routers
 app.include_router(event_router)
-app.include_router(tickets_router)
+app.include_router(market_router)
 app.include_router(account_router)
 app.include_router(loyalty_router)
 
