@@ -87,7 +87,7 @@ jobs:
             -d '{
               "name": "GitHub Actions Test Concert",
               "venue": "CI/CD Arena", 
-              "date": 1735689600,
+              "date": 1855542728,
               "price": 1000000000000000000,
               "total_tickets": 50
             }')
