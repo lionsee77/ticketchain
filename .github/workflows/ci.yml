@@ -283,6 +283,7 @@ jobs:
           echo "Buying tickets..."
           BUY_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/buy" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
             -d '{
               "event_id": 1,
               "quantity": 2,
@@ -364,6 +365,7 @@ jobs:
 
           curl -s -X POST "http://localhost:8000/events/buy" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
             -d '{
               "event_id": 1,
               "quantity": 3,
