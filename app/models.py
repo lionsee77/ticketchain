@@ -1,4 +1,6 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, EmailStr
+from typing import Optional
+from datetime import datetime
 
 
 # --- Event Models ---
@@ -43,3 +45,48 @@ class ApprovalRequest(BaseModel):
 
 class ApprovalStatusRequest(BaseModel):
     user_account: int  # Hardhat test account index (0-19)
+
+
+# --- Auth Models ---
+class UserRegister(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+    full_name: Optional[str] = None
+
+
+class UserLogin(BaseModel):
+    username: str
+    password: str
+
+
+class TokenResponse(BaseModel):
+    access_token: str
+    refresh_token: str
+    token_type: str
+    expires_in: int
+    session_id: str
+
+
+class TokenRefresh(BaseModel):
+    refresh_token: str
+
+
+class UserProfile(BaseModel):
+    id: int
+    username: str
+    email: str
+    full_name: Optional[str]
+    is_active: bool
+    is_verified: bool
+    created_at: datetime
+    roles: list[str]
+
+
+class MessageResponse(BaseModel):
+    message: str
+
+
+class AssignRoleRequest(BaseModel):
+    username: str
+    roles: list[str]
