@@ -50,8 +50,19 @@ jobs:
       - name: Save Docker images
         run: |
           echo "Saving Docker images for test job..."
+
+          # List all images to see what was actually built
+          echo "=== Available Docker images ==="
+          docker images
+
+          # Get the actual image names created by docker compose
+          PROJECT_NAME=$(basename $(pwd))
+          echo "Project name: $PROJECT_NAME"
+
+          # Save the built images (only the ones that were actually built)
           docker save -o /tmp/ticketchain-images.tar \
-            $(docker compose config --services | xargs -I {} echo "ticketchain-{}")
+            ${PROJECT_NAME,,}-api:latest \
+            ${PROJECT_NAME,,}-blockchain:latest
 
       - name: Upload Docker images
         uses: actions/upload-artifact@v4
