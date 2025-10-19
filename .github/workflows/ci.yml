@@ -78,7 +78,7 @@ jobs:
       matrix:
         test-suite:
           - auth-rbac
-          - api-endpoints
+          - event-mgr
           - resale-market
       fail-fast: false
 
@@ -227,7 +227,7 @@ jobs:
           echo "=== Authentication setup completed successfully ==="
 
       - name: Setup Authentication for Event Tests
-        if: matrix.test-suite == 'api-endpoints'
+        if: matrix.test-suite == 'event-mgr'
         run: |
           echo "=== Setting up Authentication for Event Tests ==="
 
@@ -253,7 +253,7 @@ jobs:
           fi
 
       - name: Run Event API Tests
-        if: matrix.test-suite == 'api-endpoints'
+        if: matrix.test-suite == 'event-mgr'
         run: |
           echo "=== Testing Event API Endpoints ==="
 
@@ -374,7 +374,8 @@ jobs:
 
           # Test 1: Check initial approval status
           echo "Checking initial approval status..."
-          APPROVAL_STATUS=$(curl -s "http://localhost:8000/market/approval/status?user_account=1")
+          APPROVAL_STATUS=$(curl -s "http://localhost:8000/market/approval/status?user_account=1" \
+            -H "Authorization: Bearer $ADMIN_TOKEN")
           echo "Approval Status: $APPROVAL_STATUS"
 
           if echo "$APPROVAL_STATUS" | grep -q '"is_approved":false'; then
@@ -388,6 +389,7 @@ jobs:
           echo "Approving ResaleMarket..."
           APPROVE_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/approval/approve" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
             -d '{"user_account": 1}')
 
           if echo "$APPROVE_RESPONSE" | grep -q '"success":true'; then
@@ -401,6 +403,7 @@ jobs:
           echo "Listing ticket for resale..."
           LIST_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/list" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
             -d '{
               "ticket_id": 1,
               "price": 1100000000000000000,
@@ -418,6 +421,7 @@ jobs:
           echo "Buying resale ticket..."
           BUY_RESALE_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/buy" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
             -d '{
               "ticket_id": 1,
               "buyer_account": 2
@@ -434,6 +438,7 @@ jobs:
           echo "Testing delist functionality..."
           LIST_ANOTHER_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/list" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
             -d '{
               "ticket_id": 2,
               "price": 1200000000000000000,
@@ -442,6 +447,7 @@ jobs:
 
           DELIST_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/delist" \
             -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
             -d '{
               "ticket_id": 2,
               "seller_account": 1
