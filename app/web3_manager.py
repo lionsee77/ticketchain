@@ -64,6 +64,12 @@ class Web3Manager:
         if not config.RESALE_MARKET_ADDRESS:
             raise ValueError("RESALE_MARKET_ADDRESS is required")
 
+        if not config.LOYALTY_POINT_ADDRESS:
+            raise ValueError("LOYALTY_POINT_ADDRESS is required")
+       
+        if not config.LOYALTY_SYSTEM_ADDRESS:
+            raise ValueError("LOYALTY_SYSTEM_ADDRESS is required")
+
         self.event_manager = self.w3.eth.contract(
             address=self.w3.to_checksum_address(config.EVENT_MANAGER_ADDRESS),
             abi=self.event_manager_abi,

@@ -28,6 +28,8 @@ jobs:
           RPC_URL=http://blockchain:8545
           EVENT_MANAGER_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
           RESALE_MARKET_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+          LOYALTY_POINT_ADDRESS=0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+          LOYALTY_SYSTEM_ADDRESS=0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9
           REDIS_URL=redis://redis:6379
           SECRET_KEY=github-actions-test-key
           EOF
@@ -145,6 +147,41 @@ jobs:
           else
             echo "❌ Error handling not working"
             exit 1
+          fi
+
+          echo "=== Loyalty API Tests ==="
+
+          BUYER=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+          TICKET_WEI_A=50000000000000000   # 0.05 ETH
+          PREV_A=$(curl -s "http://localhost:8000/loyalty/preview?address=$BUYER&ticket_wei=$TICKET_WEI_A")
+          echo "Preview (no points) => $PREV_A"
+
+          DISC_A=$(echo "$PREV_A" | jq -r '.wei_discount')
+          DUE_A=$(echo "$PREV_A"  | jq -r '.wei_due')
+
+          # discount must be zero; due must equal full ticket price
+          [ "$DISC_A" = "0" ] || { echo "❌ expected zero discount for zero balance (got $DISC_A)"; exit 1; }
+          [ "$DUE_A"  = "$TICKET_WEI_A" ] || { echo "❌ wei_due should equal ticket price when no points"; exit 1; }
+
+          echo "✅ Scenario A passed (no points => no discount)"
+
+          TICKET_WEI_B=400000000000000000  # 0.4 ETH
+          CAP_WEI_B=$(jq -n --argjson t "$TICKET_WEI_B" '$t * 30 / 100')
+
+          PREV_B=$(curl -s "http://localhost:8000/loyalty/preview?address=$BUYER&ticket_wei=$TICKET_WEI_B")
+          echo "Preview (with points) => $PREV_B"
+
+          DISC_B=$(echo "$PREV_B" | jq -r '.wei_discount')
+          DUE_B=$(echo "$PREV_B"  | jq -r '.wei_due')
+          PTS_B=$(echo "$PREV_B"  | jq -r '.points_applicable')
+
+          SUM_B=$(jq -n --argjson a "$DUE_B" --argjson b "$DISC_B" '$a + $b')
+          [ "$SUM_B" = "$TICKET_WEI_B" ] || { echo "❌ due + discount != ticket (due=$DUE_B disc=$DISC_B ticket=$TICKET_WEI_B)"; exit 1; }
+
+          LEQ_CAP=$(jq -n --argjson d "$DISC_B" --argjson cap "$CAP_WEI_B" '$d <= $cap')
+          [ "$LEQ_CAP" = "true" ] || { echo "❌ discount exceeds 30% cap (disc=$DISC_B cap=$CAP_WEI_B)"; exit 1; }
+
+          echo "✅ Scenario B passed (discount > 0 and capped at 30%)"
           fi
 
       - name: Check container logs on failure

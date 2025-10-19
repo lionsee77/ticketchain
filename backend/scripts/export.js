@@ -24,7 +24,7 @@ async function exportABI() {
         outputFile: "ResaleMarketABI.json",
       },
       {
-        name: "LoyaltyToken",
+        name: "LoyaltyPoint",
         artifactPath: path.join(
           __dirname,
           "../artifacts/contracts/LoyaltyPoint.sol/LoyaltyPoint.json"

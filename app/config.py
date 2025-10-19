@@ -43,6 +43,8 @@ class Config:
             ("ORACLE_PRIVATE_KEY", cls.ORACLE_PRIVATE_KEY),
             ("EVENT_MANAGER_ADDRESS", cls.EVENT_MANAGER_ADDRESS),
             ("RESALE_MARKET_ADDRESS", cls.RESALE_MARKET_ADDRESS),
+            ("LOYALTY_POINT_ADDRESS", cls.LOYALTY_POINT_ADDRESS),
+            ("LOYALTY_SYSTEM_ADDRESS", cls.LOYALTY_SYSTEM_ADDRESS),
         ]
 
         missing_vars = []
