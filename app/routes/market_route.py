@@ -220,7 +220,7 @@ def delist_ticket(req: DelistRequest):
     }
 
 
-@router.post("/{ticket_id}/buy", summary="Buy a listed ticket")
+@router.post("/buy", summary="Buy a listed ticket")
 def buy_listing(ticket_id: int, req: BuyListingRequest):
     resale, mgr = _ensure_contracts()
 
