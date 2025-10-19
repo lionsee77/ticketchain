@@ -152,10 +152,10 @@ class AuthService:
         session_id = secrets.token_urlsafe(32)
 
         # Create tokens with user roles
-        user_roles = [getattr(role, "name") for role in getattr(user, "roles")]
+        user_roles = [role.name for role in user.roles]
         token_data = {
-            "sub": str(getattr(user, "id")),
-            "username": getattr(user, "username"),
+            "sub": str(user.id),
+            "username": user.username,
             "roles": user_roles,
             "session_id": session_id,
         }
@@ -168,7 +168,7 @@ class AuthService:
         )
         db_session = SessionModel(
             session_id=session_id,
-            user_id=getattr(user, "id"),
+            user_id=user.id,
             refresh_token=refresh_token,
             expires_at=expires_at,
             user_agent=user_agent,
@@ -179,9 +179,9 @@ class AuthService:
 
         # Store session data in Redis for fast access
         session_data = {
-            "user_id": getattr(user, "id"),
-            "username": getattr(user, "username"),
-            "roles": [getattr(role, "name") for role in getattr(user, "roles")],
+            "user_id": user.id,
+            "username": user.username,
+            "roles": [role.name for role in user.roles],
             "created_at": datetime.now(timezone.utc).isoformat(),
         }
         self.redis_client.setex(
@@ -238,7 +238,7 @@ class AuthService:
         if not db_session:
             return None
 
-        # Get user
+        # Get user (keep getattr for safety with potential None values)
         user = self.get_user(db, getattr(db_session, "user_id"))
         if not user or not getattr(user, "is_active"):
             return None
@@ -250,10 +250,10 @@ class AuthService:
         db.commit()
 
         # Create new access token with user roles
-        user_roles = [getattr(role, "name") for role in getattr(user, "roles")]
+        user_roles = [role.name for role in user.roles]
         token_data = {
-            "sub": str(getattr(user, "id")),
-            "username": getattr(user, "username"),
+            "sub": str(user.id),
+            "username": user.username,
             "roles": user_roles,
             "session_id": session_id,
         }
@@ -298,8 +298,8 @@ class AuthService:
         count = 0
         session_ids = []
         for session in sessions:
-            self.redis_client.delete(f"session:{getattr(session, 'session_id')}")
-            session_ids.append(getattr(session, "session_id"))
+            self.redis_client.delete(f"session:{session.session_id}")
+            session_ids.append(session.session_id)
             count += 1
 
         # Update all sessions at once

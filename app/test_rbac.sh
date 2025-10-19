@@ -222,7 +222,7 @@ print_status "INFO" "Re-logging in initial admin to get updated token..."
 ADMIN_LOGIN_RESPONSE=$(curl -s -X POST "$BASE_URL/auth/login" \
   -H "Content-Type: application/json" \
   -d '{
-    "username": "initial_admin",
+    "username": "'$TEST_ADMIN'",
     "password": "admin123"
   }')
 
@@ -251,7 +251,7 @@ ASSIGN_ADMIN_RESPONSE=$(curl -s -X POST "$BASE_URL/auth/assign-roles" \
 print_status "INFO" "Admin role assignment: $(echo "$ASSIGN_ADMIN_RESPONSE" | jq -r '.message // "failed"')"
 
 echo ""
-echo "🔄 Step 3: Re-login users to get updated tokens with roles"
+echo "🔄 Step 4: Re-login users to get updated tokens with roles"
 echo "========================================================="
 
 # Re-login all users to get tokens with updated roles
@@ -285,7 +285,7 @@ ADMIN_LOGIN_RESPONSE=$(curl -s -X POST "$BASE_URL/auth/login" \
 ADMIN_TOKEN=$(echo "$ADMIN_LOGIN_RESPONSE" | jq -r '.access_token // empty')
 
 echo ""
-echo "🔍 Step 4: Verify user roles"
+echo "🔍 Step 5: Verify user roles"
 echo "============================"
 
 # Check each user's roles
@@ -304,7 +304,7 @@ ADMIN_ROLES=$(echo "$ADMIN_PROFILE" | jq -r '.roles[]? // empty' | tr '\n' ',' |
 print_status "INFO" "Admin user roles: [$ADMIN_ROLES]"
 
 echo ""
-echo "🎫 Step 5: Test Event Creation (requires organiser or admin)"
+echo "🎫 Step 6: Test Event Creation (requires organiser or admin)"
 echo "=========================================================="
 
 EVENT_DATA='{
@@ -321,7 +321,7 @@ test_endpoint_access "Create event with organiser role" "POST" "/events/create" 
 test_endpoint_access "Create event with admin role" "POST" "/events/create" "$ADMIN_TOKEN" "$EVENT_DATA" "success"
 
 echo ""
-echo "🔒 Step 6: Test Event Close (requires organiser or admin)"
+echo "🔒 Step 7: Test Event Close (requires organiser or admin)"
 echo "========================================================"
 
 test_endpoint_access "Close event without auth" "POST" "/events/1/close" "" "" "auth_fail"
@@ -334,7 +334,7 @@ print_status "INFO" "Skipping admin close test to avoid closing the same event t
 print_status "PASS" "Admin would have same permission as organiser for event closing"
 
 echo ""
-echo "🎟️  Step 7: Test Ticket Purchase (requires any auth)"
+echo "🎟️  Step 8: Test Ticket Purchase (requires any auth)"
 echo "==================================================="
 
 # First, let's check what events exist
@@ -397,14 +397,14 @@ test_endpoint_access "Buy tickets with organiser role" "POST" "/events/buy" "$OR
 test_endpoint_access "Buy tickets with admin role" "POST" "/events/buy" "$ADMIN_TOKEN" "$TICKET_DATA" "success"
 
 echo ""
-echo "📋 Step 8: Test Public Endpoints"
+echo "📋 Step 9: Test Public Endpoints"
 echo "==============================="
 
 test_endpoint_access "List events without auth" "GET" "/events/all" "" "" "success"
 test_endpoint_access "Get event details without auth" "GET" "/events/1/details" "" "" "success"
 
 echo ""
-echo "🔑 Step 9: Test Role Assignment (admin only)"
+echo "🔑 Step 10: Test Role Assignment (admin only)"
 echo "============================================"
 
 ROLE_ASSIGN_DATA='{

@@ -128,17 +128,6 @@ def close_event(
                 "event_id": event_id,
             }
 
-        # If role is organiser, check if organiser is the event creator
-        organiser_address = web3_manager.event_manager.functions.events(
-            event_id
-        ).call()[1]
-        if "organiser" in user_info["roles"]:
-            if organiser_address.lower() != user_info["address"].lower():
-                raise HTTPException(
-                    status_code=403,
-                    detail="Organiser can only close their own events",
-                )
-
         # ensure oracle signer is available in web3_manager
         signer = getattr(web3_manager, "oracle_account", None) or getattr(
             web3_manager, "oracle_private_key", None
