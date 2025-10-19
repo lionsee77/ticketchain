@@ -9,6 +9,7 @@ services:
     environment:
       - RPC_URL=http://blockchain:8545
       - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://ticketchain:password123@postgres:5432/ticketchain
     volumes:
       - ./app/.env:/app/.env:ro
       - contracts-shared:/app/contracts:ro
@@ -17,8 +18,29 @@ services:
         condition: service_healthy
       redis:
         condition: service_started
+      postgres:
+        condition: service_healthy
     networks:
       - ticketchain
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ticketchain
+      POSTGRES_USER: ticketchain
+      POSTGRES_PASSWORD: password123
+    ports:
+      - "5433:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ticketchain
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ticketchain -d ticketchain"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
 
   # Hardhat Blockchain (existing)
   blockchain:
@@ -43,11 +65,16 @@ services:
     image: redis:7-alpine
     ports:
       - "6380:6379"
+    volumes:
+      - redis_data:/data
     networks:
       - ticketchain
+    command: redis-server --appendonly yes
 
 volumes:
   contracts-shared:
+  postgres_data:
+  redis_data:
 
 networks:
   ticketchain:
