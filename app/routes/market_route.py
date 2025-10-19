@@ -221,7 +221,7 @@ def delist_ticket(req: DelistRequest):
 
 
 @router.post("/buy", summary="Buy a listed ticket")
-def buy_listing(ticket_id: int, req: BuyListingRequest):
+def buy_listing(req: BuyListingRequest):
     resale, mgr = _ensure_contracts()
 
     try:
@@ -232,7 +232,7 @@ def buy_listing(ticket_id: int, req: BuyListingRequest):
 
     # read listing
     try:
-        listing = resale.functions.listings(ticket_id).call()
+        listing = resale.functions.listings(req.ticket_id).call()
         listing_active = bool(listing[3]) if len(listing) > 3 else bool(listing[2])
         price = int(listing[1])
         seller_addr = listing[0]
@@ -244,7 +244,7 @@ def buy_listing(ticket_id: int, req: BuyListingRequest):
         return {
             "success": False,
             "message": "listing not active",
-            "ticket_id": ticket_id,
+            "ticket_id": req.ticket_id,
         }
 
     if seller_addr == buyer_addr:
@@ -273,13 +273,13 @@ def buy_listing(ticket_id: int, req: BuyListingRequest):
 
     # Simulate transaction first to catch reverts
     try:
-        resale.functions.buy(ticket_id).call({"from": buyer_addr, "value": price})
+        resale.functions.buy(req.ticket_id).call({"from": buyer_addr, "value": price})
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Transaction would fail: {str(e)}")
 
     # Build and send transaction
     try:
-        fn = resale.functions.buy(ticket_id)
+        fn = resale.functions.buy(req.ticket_id)
         txn = web3_manager.build_user_transaction(fn, buyer_acct, gas=300000)
         txn["value"] = int(price)
         tx_hash = web3_manager.sign_and_send_user_transaction(txn, buyer_acct)
@@ -291,7 +291,7 @@ def buy_listing(ticket_id: int, req: BuyListingRequest):
     return {
         "success": True,
         "tx_hash": tx_hash.hex(),
-        "ticket_id": ticket_id,
+        "ticket_id": req.ticket_id,
         "price": price,
         "message": "purchase transaction submitted",
     }
