@@ -23,6 +23,22 @@ async function exportABI() {
         ),
         outputFile: "ResaleMarketABI.json",
       },
+      {
+        name: "LoyaltyToken",
+        artifactPath: path.join(
+          __dirname,
+          "../artifacts/contracts/LoyaltyPoint.sol/LoyaltyPoint.json"
+        ),
+        outputFile: "LoyaltyPointABI.json",
+      },
+      {
+        name: "LoyaltySystem",
+        artifactPath: path.join(
+          __dirname,
+          "../artifacts/contracts/LoyaltySystem.sol/LoyaltySystem.json"
+        ),
+        outputFile: "LoyaltySystemABI.json",
+      },
     ];
 
     // Ensure shared directory exists
