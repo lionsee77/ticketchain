@@ -255,7 +255,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "ticket_id": 3,
-              "price": 1200000000000000000,
+              "price": 1100000000000000000,
               "seller_account": 1
             }')
 
