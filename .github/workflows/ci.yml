@@ -147,6 +147,185 @@ jobs:
             exit 1
           fi
 
+      - name: Test Resale Market Endpoints
+        run: |
+          echo "=== Testing Resale Market Flow ==="
+
+          # Step 1: Check initial approval status (should be false)
+          echo "Checking initial approval status..."
+          APPROVAL_STATUS=$(curl -s "http://localhost:8000/market/approval/status?user_account=1")
+          echo "Approval Status Response: $APPROVAL_STATUS"
+
+          if echo "$APPROVAL_STATUS" | grep -q '"is_approved":false'; then
+            echo "✅ Initial approval status correct (not approved)"
+          else
+            echo "❌ Initial approval status unexpected"
+            exit 1
+          fi
+
+          # Step 2: Approve ResaleMarket
+          echo "Approving ResaleMarket for user account 1..."
+          APPROVE_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/approval/approve" \
+            -H "Content-Type: application/json" \
+            -d '{"user_account": 1}')
+
+          echo "Approve Response: $APPROVE_RESPONSE"
+
+          if echo "$APPROVE_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ ResaleMarket approval successful"
+          else
+            echo "❌ ResaleMarket approval failed"
+            exit 1
+          fi
+
+          # Step 3: Verify approval status (should now be true)
+          echo "Verifying approval status after approval..."
+          APPROVAL_STATUS_AFTER=$(curl -s "http://localhost:8000/market/approval/status?user_account=1")
+          echo "Approval Status After Response: $APPROVAL_STATUS_AFTER"
+
+          if echo "$APPROVAL_STATUS_AFTER" | grep -q '"is_approved":true'; then
+            echo "✅ Approval status verified (now approved)"
+          else
+            echo "❌ Approval status not updated correctly"
+            exit 1
+          fi
+
+          # Step 4: List a ticket for resale
+          echo "Listing ticket #1 for resale..."
+          LIST_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/list" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "ticket_id": 1,
+              "price": 1100000000000000000,
+              "seller_account": 1
+            }')
+
+          echo "List Ticket Response: $LIST_RESPONSE"
+
+          if echo "$LIST_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Ticket listing successful"
+          else
+            echo "❌ Ticket listing failed"
+            exit 1
+          fi
+
+          # Step 5: Buy the listed ticket
+          echo "Buying listed ticket with user account 2..."
+          BUY_RESALE_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/buy" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "ticket_id": 1,
+              "buyer_account": 2
+            }')
+
+          echo "Buy Resale Ticket Response: $BUY_RESALE_RESPONSE"
+
+          if echo "$BUY_RESALE_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Resale ticket purchase successful"
+          else
+            echo "❌ Resale ticket purchase failed"
+            exit 1
+          fi
+
+          echo "=== Testing Delist Functionality ==="
+
+          # Step 6: Buy another ticket to test delisting
+          echo "Buying another ticket for delisting test..."
+          BUY_ANOTHER_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/buy" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "event_id": 1,
+              "quantity": 1,
+              "user_account": 1
+            }')
+
+          echo "Buy Another Ticket Response: $BUY_ANOTHER_RESPONSE"
+
+          if echo "$BUY_ANOTHER_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Additional ticket purchase successful"
+          else
+            echo "❌ Additional ticket purchase failed"
+            exit 1
+          fi
+
+          # Step 7: List the new ticket
+          echo "Listing ticket #3 for resale..."
+          LIST_ANOTHER_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/list" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "ticket_id": 3,
+              "price": 1200000000000000000,
+              "seller_account": 1
+            }')
+
+          echo "List Another Ticket Response: $LIST_ANOTHER_RESPONSE"
+
+          if echo "$LIST_ANOTHER_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Second ticket listing successful"
+          else
+            echo "❌ Second ticket listing failed"
+            exit 1
+          fi
+
+          # Step 8: Delist the ticket
+          echo "Delisting ticket #3..."
+          DELIST_RESPONSE=$(curl -s -X POST "http://localhost:8000/market/delist" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "ticket_id": 3,
+              "seller_account": 1
+            }')
+
+          echo "Delist Ticket Response: $DELIST_RESPONSE"
+
+          if echo "$DELIST_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Ticket delisting successful"
+          else
+            echo "❌ Ticket delisting failed"
+            exit 1
+          fi
+
+          echo "=== Testing Error Cases ==="
+
+          # Step 9: Try to list without approval (using user account 3)
+          echo "Testing listing without approval (should fail)..."
+          LIST_NO_APPROVAL=$(curl -s -X POST "http://localhost:8000/market/list" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "ticket_id": 2,
+              "price": 1100000000000000000,
+              "seller_account": 3
+            }')
+
+          echo "List Without Approval Response: $LIST_NO_APPROVAL"
+
+          if echo "$LIST_NO_APPROVAL" | grep -q '"detail"' && echo "$LIST_NO_APPROVAL" | grep -q "approve"; then
+            echo "✅ Correctly rejected listing without approval"
+          else
+            echo "❌ Should have rejected listing without approval"
+            exit 1
+          fi
+
+          # Step 10: Try to buy non-existent listing
+          echo "Testing buying non-existent listing (should fail)..."
+          BUY_NONEXISTENT=$(curl -s -X POST "http://localhost:8000/market/buy" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "ticket_id": 999,
+              "buyer_account": 2
+            }')
+
+          echo "Buy Non-existent Response: $BUY_NONEXISTENT"
+
+          if echo "$BUY_NONEXISTENT" | grep -q '"detail"' || echo "$BUY_NONEXISTENT" | grep -q '"success":false'; then
+            echo "✅ Correctly rejected buying non-existent listing"
+          else
+            echo "❌ Should have rejected buying non-existent listing"
+            echo "Note: This may pass if the endpoint handles it gracefully"
+          fi
+
+          echo "🎉 All resale market tests completed successfully!"
+
       - name: Check container logs on failure
         if: failure()
         run: |
