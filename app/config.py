@@ -24,6 +24,11 @@ class Config:
     DEFAULT_GAS = 300000
     DEFAULT_GAS_PRICE_GWEI = "10"
 
+    # Database configuration
+    DATABASE_URL = os.getenv(
+        "DATABASE_URL", "postgresql://user:password@localhost:5432/ticketchain"
+    )
+
     # Redis configuration
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
     REDIS_DB = int(os.getenv("REDIS_DB", "0"))

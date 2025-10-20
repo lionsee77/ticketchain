@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Depends
 from models import (
     ListRequest,
     DelistRequest,
@@ -9,6 +9,7 @@ from models import (
 from web3_manager import web3_manager
 from web3 import Web3
 from typing import Optional
+from dependencies.role_deps import require_authenticated_user
 
 # Initialize router
 router = APIRouter(prefix="/market", tags=["market"])
@@ -28,7 +29,7 @@ def _ensure_contracts():
 
 
 @router.get("/approval/status", summary="Check if user has approved ResaleMarket")
-def check_approval_status(user_account: int):
+def check_approval_status(user_account: int, user_info: dict = Depends(require_authenticated_user)):
     """Check if a user has approved the ResaleMarket to transfer their tickets"""
     try:
         is_approved = web3_manager.check_resale_market_approval(user_account)
@@ -54,7 +55,10 @@ def check_approval_status(user_account: int):
 @router.post(
     "/approval/approve", summary="Approve ResaleMarket to transfer user's tickets"
 )
-def approve_resale_market(req: ApprovalRequest):
+def approve_resale_market(
+    req: ApprovalRequest,
+    user_info: dict = Depends(require_authenticated_user)
+):
     """
     Approve the ResaleMarket contract to transfer user's tickets.
     This is required before users can list tickets for resale.
@@ -88,7 +92,10 @@ def approve_resale_market(req: ApprovalRequest):
 
 
 @router.post("/approval/revoke", summary="Revoke ResaleMarket approval")
-def revoke_resale_market_approval(req: ApprovalRequest):
+def revoke_resale_market_approval(
+    req: ApprovalRequest,
+    user_info: dict = Depends(require_authenticated_user)
+):
     """
     Revoke the ResaleMarket contract's approval to transfer user's tickets.
     Note: This will prevent listing new tickets, but won't affect existing listings.
@@ -123,7 +130,7 @@ def revoke_resale_market_approval(req: ApprovalRequest):
 
 
 @router.post("/list", summary="List a ticket for resale")
-def list_ticket(req: ListRequest):
+def list_ticket(req: ListRequest, user_info: dict = Depends(require_authenticated_user)):
     """
     List a ticket for resale. User must have approved ResaleMarket first.
     ResaleMarket will take custody of the ticket when listed.
@@ -173,7 +180,7 @@ def list_ticket(req: ListRequest):
 
 
 @router.post("/delist", summary="Delist a ticket (seller only)")
-def delist_ticket(req: DelistRequest):
+def delist_ticket(req: DelistRequest, user_info: dict = Depends(require_authenticated_user)):
     resale, mgr = _ensure_contracts()
     ticket_id = req.ticket_id
 
@@ -221,7 +228,7 @@ def delist_ticket(req: DelistRequest):
 
 
 @router.post("/buy", summary="Buy a listed ticket")
-def buy_listing(req: BuyListingRequest):
+def buy_listing(req: BuyListingRequest, user_info: dict = Depends(require_authenticated_user)):
     resale, mgr = _ensure_contracts()
 
     try:
