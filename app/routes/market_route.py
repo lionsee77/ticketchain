@@ -5,6 +5,8 @@ from models import (
     BuyListingRequest,
     ApprovalRequest,
     ApprovalStatusRequest,
+    MarketListingsResponse,
+    ListingResponse
 )
 from web3_manager import web3_manager
 from web3 import Web3
@@ -302,3 +304,102 @@ def buy_listing(req: BuyListingRequest, user_info: dict = Depends(require_authen
         "price": price,
         "message": "purchase transaction submitted",
     }
+
+
+@router.get("/listings", response_model=MarketListingsResponse)
+async def get_active_listings(user_info: dict = Depends(require_authenticated_user)):
+    """Get all active listings in the marketplace"""
+    resale, mgr = _ensure_contracts()
+    
+    try:
+        # Get total events
+        total_events = mgr.functions.eventCounter().call()
+        active_listings = []
+
+        # Iterate through events
+        for event_id in range(1, total_events + 1):
+            try:
+                event = mgr.functions.events(event_id).call()
+                total_tickets = event[6]  # totalTickets from event struct
+                
+                # Check tickets for this event
+                for ticket_id in range(1, total_tickets + 1):
+                    try:
+                        listing = resale.functions.listings(ticket_id).call()
+                        seller_address = listing[0]
+                        is_active = bool(listing[3])
+                        
+                        if is_active:
+                            active_listings.append(ListingResponse(
+                                ticket_id=ticket_id,
+                                seller_address=seller_address,
+                                price=int(listing[1]),
+                                event_id=int(listing[2]),
+                                is_active=is_active
+                            ))
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        return MarketListingsResponse(
+            listings=active_listings,
+            total=len(active_listings),
+            message="Successfully retrieved active listings"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch market listings: {str(e)}"
+        )
+
+@router.get("/my-listings", response_model=MarketListingsResponse)
+async def get_my_listings(
+    user_account: int,
+    user_info: dict = Depends(require_authenticated_user)
+):
+    """Get all listings by the authenticated user"""
+    resale, mgr = _ensure_contracts()
+    
+    try:
+        user_address = web3_manager.get_user_address(user_account)
+        # Get total events 
+        total_events = mgr.functions.eventCounter().call()  # Use eventCounter instead
+        user_listings = []
+
+        # Iterate through events
+        for event_id in range(1, total_events + 1):
+            try:
+                event = mgr.functions.events(event_id).call()
+                total_tickets = event[6]  # totalTickets from event struct
+                
+                # Check tickets for this event
+                for ticket_id in range(1, total_tickets + 1):
+                    try:
+                        listing = resale.functions.listings(ticket_id).call()
+                        seller_address = listing[0]
+                        is_active = bool(listing[3])
+                        
+                        if is_active and seller_address.lower() == user_address.lower():
+                            user_listings.append(ListingResponse(
+                                ticket_id=ticket_id,
+                                seller_address=seller_address,
+                                price=int(listing[1]),
+                                event_id=int(listing[2]),
+                                is_active=is_active
+                            ))
+                    except Exception:
+                        continue
+            except Exception:
+                continue
+
+        return MarketListingsResponse(
+            listings=user_listings,
+            total=len(user_listings),
+            message=f"Successfully retrieved listings for account {user_account}"
+        )
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Failed to fetch user listings: {str(e)}"
+        )

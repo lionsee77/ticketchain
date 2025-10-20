@@ -37,6 +37,17 @@ class BuyListingRequest(BaseModel):
     ticket_id: int
     buyer_account: int  # Hardhat test account index (0-19)
 
+class ListingResponse(BaseModel):
+    ticket_id: int
+    seller_address: str
+    price: int
+    event_id: int
+    is_active: bool
+
+class MarketListingsResponse(BaseModel):
+    listings: list[ListingResponse]
+    total: int
+    message: str
 
 # --- Approval Models ---
 class ApprovalRequest(BaseModel):
