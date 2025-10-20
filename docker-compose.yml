@@ -23,6 +23,23 @@ services:
     networks:
       - ticketchain
 
+  # Next.js Frontend Application
+  frontend:
+    build:
+      context: ./frontend/webapp
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./frontend/webapp:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api
+    networks:
+      - ticketchain
+    command: npm run dev
+
   # PostgreSQL Database
   postgres:
     image: postgres:15-alpine
