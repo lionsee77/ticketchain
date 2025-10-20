@@ -27,6 +27,7 @@ import { AVAILABLE_HARDHAT_ACCOUNTS, AVAILABLE_HARDHAT_PRIVATE_KEYS } from "@/li
 import { apiClient } from "@/lib/api/client"
 import { useRouter } from "next/navigation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useAuth } from "@/hooks/useAuth"
 
 const formSchema = z.object({
   username: z.string().min(3, {
@@ -47,6 +48,7 @@ export function RegistrationForm() {
   const router = useRouter()
   const [error, setError] = React.useState<string | null>(null)
   const [isLoading, setIsLoading] = React.useState(false)
+  const { login } = useAuth()
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -89,12 +91,8 @@ export function RegistrationForm() {
         password: values.password,
       })
       
-      // Store the token and user info
-      localStorage.setItem('token', loginResponse.access_token)
-      localStorage.setItem('user', JSON.stringify({ 
-        username: values.username,
-        wallet_address: values.walletAddress
-      }))
+      // Use the auth hook to handle login
+      login(loginResponse.access_token, { username: values.username })
       
       // Redirect to events page
       router.push("/events")

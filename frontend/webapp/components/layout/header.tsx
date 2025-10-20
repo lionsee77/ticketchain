@@ -1,6 +1,5 @@
 "use client"
 
-import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Ticket, Menu, User, LogOut, Settings } from "lucide-react"
@@ -10,33 +9,14 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import { useAuth } from "@/hooks/useAuth"
 
 export function Header() {
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
-  const [user, setUser] = useState<{ username?: string } | null>(null)
+  const { isAuthenticated, user, logout } = useAuth()
   const router = useRouter()
 
-  useEffect(() => {
-    const token = localStorage.getItem('token')
-    const userData = localStorage.getItem('user')
-    
-    if (token) {
-      setIsAuthenticated(true)
-      if (userData) {
-        try {
-          setUser(JSON.parse(userData))
-        } catch (e) {
-          setUser(null)
-        }
-      }
-    }
-  }, [])
-
   const handleLogout = () => {
-    localStorage.removeItem('token')
-    localStorage.removeItem('user')
-    setIsAuthenticated(false)
-    setUser(null)
+    logout()
     router.push('/')
   }
 

@@ -7,6 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert } from "@/components/ui/alert"
 import { apiClient } from "@/lib/api/client"
+import { useAuth } from "@/hooks/useAuth"
 
 export function LoginForm() {
   const [formData, setFormData] = useState({
@@ -16,6 +17,7 @@ export function LoginForm() {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const router = useRouter()
+  const { login } = useAuth()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,9 +27,8 @@ export function LoginForm() {
     try {
       const response = await apiClient.login(formData)
       
-      // Store the token and user info
-      localStorage.setItem('token', response.access_token)
-      localStorage.setItem('user', JSON.stringify({ username: formData.username }))
+      // Use the auth hook to handle login
+      login(response.access_token, { username: formData.username })
       
       // Redirect to events page
       router.push('/events')

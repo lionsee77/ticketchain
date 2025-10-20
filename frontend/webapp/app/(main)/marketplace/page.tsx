@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Calendar, MapPin, DollarSign, Search, Filter, ShoppingCart, Plus } from "lucide-react"
 import { SellTicketsDialog } from "@/components/marketplace/sell-tickets-dialog"
+import { useAuth } from "@/hooks/useAuth"
 
 // Mock listings for design purposes
 const mockListings: Listing[] = [
@@ -67,12 +68,12 @@ export default function MarketplacePage() {
   const [listings, setListings] = useState<Listing[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [filteredListings, setFilteredListings] = useState<Listing[]>([])
   const [sellDialogOpen, setSellDialogOpen] = useState(false)
   
   const router = useRouter()
+  const { isAuthenticated } = useAuth()
 
   const fetchListings = async () => {
     try {
@@ -106,8 +107,6 @@ export default function MarketplacePage() {
   }
 
   useEffect(() => {
-    const token = localStorage.getItem('token')
-    setIsAuthenticated(!!token)
     fetchListings()
   }, [])
 
