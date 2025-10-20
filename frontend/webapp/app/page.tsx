@@ -61,7 +61,8 @@ export default function HomePage() {
   }
 
   const handleEventClick = (eventId: string) => {
-    router.push(`/events/${eventId}`)
+    // For now, redirect to events page since individual event pages aren't implemented
+    router.push('/events')
   }
 
   return (
@@ -190,6 +191,10 @@ export default function HomePage() {
                       variant="outline" 
                       size="sm"
                       className="group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-colors"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Prevent card click
+                        router.push('/events'); // Go to real events page
+                      }}
                     >
                       Get Tickets
                     </Button>

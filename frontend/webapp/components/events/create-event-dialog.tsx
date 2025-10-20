@@ -50,7 +50,11 @@ const formSchema = z.object({
   }),
 })
 
-export function CreateEventDialog() {
+interface CreateEventDialogProps {
+  onEventCreated?: () => void | Promise<void>;
+}
+
+export function CreateEventDialog({ onEventCreated }: CreateEventDialogProps) {
   const [open, setOpen] = React.useState(false)
   const router = useRouter()
   const [error, setError] = React.useState<string | null>(null)
@@ -72,12 +76,18 @@ export function CreateEventDialog() {
     try {
       setIsLoading(true)
       setError(null)
+      
       await createEvent({
         ...values,
         total_supply: Number(values.total_supply),
       })
       setOpen(false)
-      router.refresh()
+      form.reset() // Reset the form after successful creation
+      
+      // Call the callback to refresh the events list
+      if (onEventCreated) {
+        await onEventCreated()
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to create event")
     } finally {

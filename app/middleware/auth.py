@@ -44,6 +44,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next) -> Response:
         """Process request with authentication only"""
 
+        # Always allow OPTIONS requests (CORS preflight) to pass through
+        if request.method == "OPTIONS":
+            return await call_next(request)
+
         # Skip auth for non-protected paths
         if not self._is_protected_path(request.url.path):
             return await call_next(request)

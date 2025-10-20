@@ -9,6 +9,7 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Calendar, MapPin, DollarSign, Search, Filter, ShoppingCart, Plus } from "lucide-react"
+import { SellTicketsDialog } from "@/components/marketplace/sell-tickets-dialog"
 
 // Mock listings for design purposes
 const mockListings: Listing[] = [
@@ -69,50 +70,59 @@ export default function MarketplacePage() {
   const [isAuthenticated, setIsAuthenticated] = useState(false)
   const [searchQuery, setSearchQuery] = useState("")
   const [filteredListings, setFilteredListings] = useState<Listing[]>([])
+  const [sellDialogOpen, setSellDialogOpen] = useState(false)
   
   const router = useRouter()
+
+  const fetchListings = async () => {
+    try {
+      setLoading(true)
+      const token = localStorage.getItem('token')
+      
+      if (token) {
+        try {
+          const listingsData = await getListings()
+          setListings(listingsData)
+          setError(null)
+        } catch (apiError) {
+          console.warn('API fetch failed, falling back to mock data:', apiError)
+          // Fall back to mock data if API is unavailable
+          setListings(mockListings)
+          setError(null) // Don't show error to user when fallback works
+        }
+      } else {
+        // Use mock data for demo when not authenticated
+        setListings(mockListings)
+        setError(null)
+      }
+    } catch (err) {
+      console.error('Error fetching listings:', err)
+      setError(err instanceof Error ? err.message : 'Failed to fetch listings')
+      // Always fall back to mock data on any error to prevent crashes
+      setListings(mockListings || [])
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
     const token = localStorage.getItem('token')
     setIsAuthenticated(!!token)
-
-    const fetchListings = async () => {
-      try {
-        setLoading(true)
-        
-        if (token) {
-          const listingsData = await getListings()
-          setListings(listingsData)
-        } else {
-          // Use mock data for demo when not authenticated
-          setListings(mockListings)
-        }
-        
-        setError(null)
-      } catch (err) {
-        setError(err instanceof Error ? err.message : 'Failed to fetch listings')
-        // If we get an auth error, fall back to mock data
-        if (err instanceof Error && err.message.includes('Failed to fetch')) {
-          setListings(mockListings)
-        }
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchListings()
   }, [])
 
   useEffect(() => {
-    // Filter listings based on search query
+    // Filter listings based on search query - ensure listings is always an array
+    const listingsArray = Array.isArray(listings) ? listings : []
+    
     if (searchQuery.trim()) {
-      const filtered = listings.filter(listing =>
+      const filtered = listingsArray.filter(listing =>
         listing.event_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         listing.seller_address.toLowerCase().includes(searchQuery.toLowerCase())
       )
       setFilteredListings(filtered)
     } else {
-      setFilteredListings(listings)
+      setFilteredListings(listingsArray)
     }
   }, [listings, searchQuery])
 
@@ -124,8 +134,7 @@ export default function MarketplacePage() {
     if (!isAuthenticated) {
       router.push('/register')
     } else {
-      // TODO: Open sell ticket dialog
-      alert('Sell ticket functionality coming soon!')
+      setSellDialogOpen(true)
     }
   }
 
@@ -213,7 +222,7 @@ export default function MarketplacePage() {
           </div>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredListings.map((listing) => (
+            {Array.isArray(filteredListings) && filteredListings.map((listing) => (
               <Card 
                 key={listing.id}
                 className="group cursor-pointer overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
@@ -274,6 +283,12 @@ export default function MarketplacePage() {
           </div>
         )}
       </div>
+      
+      <SellTicketsDialog 
+        open={sellDialogOpen}
+        onOpenChange={setSellDialogOpen}
+        onSuccess={fetchListings}
+      />
     </div>
   )
 }

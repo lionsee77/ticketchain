@@ -8,7 +8,10 @@ import { Card, CardContent } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Calendar, MapPin, Users, Search, Filter, Plus } from "lucide-react"
+import { CreateEventDialog } from "@/components/events/create-event-dialog"
+import { BuyTicketsDialog } from "@/components/events/buy-tickets-dialog"
+import { testApiConnection, testLocalStorage } from "@/lib/debug"
+import { Calendar, MapPin, Users, Search, Filter, Plus, Bug } from "lucide-react"
 
 // Mock events for design purposes
 const mockEvents: Event[] = [
@@ -133,15 +136,22 @@ export default function EventsPage() {
   }, [events, searchQuery])
 
   const handleEventClick = (eventId: string) => {
-    router.push(`/events/${eventId}`)
+    // Individual event detail pages aren't implemented yet
+    // For now, do nothing or could show a "Coming soon" message
+    console.log(`Event detail page for event ${eventId} not implemented yet`)
   }
 
-  const handleCreateEvent = () => {
-    if (!isAuthenticated) {
-      router.push('/register')
-    } else {
-      // TODO: Open create event dialog
-      alert('Create event functionality coming soon!')
+  const refreshEvents = async () => {
+    // Refresh the events list after creating a new event
+    try {
+      const token = localStorage.getItem('token')
+      if (token) {
+        const eventsData = await getEvents()
+        setEvents(eventsData)
+        setError(null)
+      }
+    } catch (err) {
+      console.error('Failed to refresh events:', err)
     }
   }
 
@@ -185,13 +195,31 @@ export default function EventsPage() {
                 Find amazing experiences happening near you
               </p>
             </div>
-            <Button 
-              onClick={handleCreateEvent}
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-            >
-              <Plus className="h-4 w-4 mr-2" />
-              Create Event
-            </Button>
+            <div className="flex gap-2">
+              {isAuthenticated ? (
+                <CreateEventDialog onEventCreated={refreshEvents} />
+              ) : (
+                <Button 
+                  onClick={() => router.push('/register')}
+                  className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
+                >
+                  <Plus className="h-4 w-4 mr-2" />
+                  Sign In to Create Event
+                </Button>
+              )}
+              <Button 
+                variant="outline" 
+                onClick={() => {
+                  console.log('=== Starting Debug Tests ===');
+                  testLocalStorage();
+                  testApiConnection();
+                }}
+                className="text-gray-600 border-gray-300"
+              >
+                <Bug className="h-4 w-4 mr-2" />
+                Debug API
+              </Button>
+            </div>
           </div>
 
           {/* Search and Filters */}
@@ -253,8 +281,7 @@ export default function EventsPage() {
               return (
                 <Card 
                   key={event.id}
-                  className="group cursor-pointer overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
-                  onClick={() => handleEventClick(event.id)}
+                  className="group overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
                 >
                   <div className="relative">
                     <div className="h-48 bg-gradient-to-br from-blue-400 via-purple-500 to-pink-500 flex items-center justify-center">
@@ -302,13 +329,10 @@ export default function EventsPage() {
                           ${event.ticket_price}
                         </span>
                       </div>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        className="group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-colors"
-                      >
-                        Get Tickets
-                      </Button>
+                      <BuyTicketsDialog 
+                        event={event} 
+                        onTicketsPurchased={refreshEvents}
+                      />
                     </div>
                   </CardContent>
                 </Card>
