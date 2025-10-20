@@ -112,6 +112,9 @@ async def register_user(
         password=user_data.password,
         full_name=user_data.full_name,
         roles=["user"],  # Default role
+        wallet_address=user_data.wallet_address,  
+        private_key=user_data.private_key,      
+        account_index=user_data.account_index    
     )
 
     # Create session
@@ -219,6 +222,9 @@ async def get_user_profile(current_user: User = Depends(get_current_active_user)
         is_verified=getattr(current_user, "is_verified"),
         created_at=getattr(current_user, "created_at"),
         roles=[getattr(role, "name") for role in getattr(current_user, "roles")],
+        account_index=getattr(current_user, "account_index"),
+        wallet_address=getattr(current_user, "wallet_address"),
+        private_key=getattr(current_user, "private_key")
     )
 
 

@@ -93,6 +93,9 @@ def create_initial_admin():
             password="admin123",
             full_name="System Administrator",
             roles=["admin", "user"],
+            account_index=0,
+            wallet_address="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            private_key="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
         )
 
         print("✅ Initial admin user created successfully!")
@@ -100,6 +103,10 @@ def create_initial_admin():
         print("   Email: admin@ticketchain.com")
         print("   Password: admin123")
         print(f"   Roles: {[role.name for role in admin_user.roles]}")
+        print(f"   Wallet Address: {admin_user.wallet_address}")
+        print(f"   Wallet Priv Key: {admin_user.private_key}")
+        print(f"   Hardhat account Index: {admin_user.account_index}")
+        
         print("⚠️  IMPORTANT: Change the default password in production!")
 
     except Exception as e:

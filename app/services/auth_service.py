@@ -113,6 +113,9 @@ class AuthService:
         username: str,
         email: str,
         password: str,
+        account_index: int,
+        wallet_address: str,
+        private_key: str,
         full_name: Optional[str] = None,
         roles: Optional[List[str]] = None,
     ) -> User:
@@ -125,6 +128,9 @@ class AuthService:
             email=email,
             hashed_password=hashed_password,
             full_name=full_name,
+            wallet_address=wallet_address,
+            private_key=private_key,
+            account_index=account_index,
             is_active=True,
             is_verified=False,
         )

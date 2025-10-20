@@ -53,6 +53,9 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
+    account_index: int
+    wallet_address: str
+    private_key: str
 
 
 class UserLogin(BaseModel):
@@ -81,6 +84,9 @@ class UserProfile(BaseModel):
     is_verified: bool
     created_at: datetime
     roles: list[str]
+    account_index: int
+    wallet_address: str
+    private_key: str  
 
 
 class MessageResponse(BaseModel):
