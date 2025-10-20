@@ -23,7 +23,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { HARDHAT_ACCOUNTS } from "@/lib/hardhat-accounts"
+import { AVAILABLE_HARDHAT_ACCOUNTS, AVAILABLE_HARDHAT_PRIVATE_KEYS } from "@/lib/hardhat-accounts"
 import { apiClient } from "@/lib/api/client"
 import { useRouter } from "next/navigation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -31,6 +31,9 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 const formSchema = z.object({
   username: z.string().min(3, {
     message: "Username must be at least 3 characters.",
+  }),
+  email: z.string().email({
+    message: "Please enter a valid email address.",
   }),
   password: z.string().min(6, {
     message: "Password must be at least 6 characters.",
@@ -49,6 +52,7 @@ export function RegistrationForm() {
     resolver: zodResolver(formSchema),
     defaultValues: {
       username: "",
+      email: "",
       password: "",
       walletAddress: "",
     },
@@ -59,11 +63,24 @@ export function RegistrationForm() {
       setIsLoading(true)
       setError(null)
       
+      // Find the wallet address index in the available accounts
+      const accountIndex = AVAILABLE_HARDHAT_ACCOUNTS.indexOf(values.walletAddress)
+      if (accountIndex === -1) {
+        throw new Error("Invalid wallet address selected")
+      }
+      
+      // Get the corresponding private key (add 2 because we start from account 2)
+      const actualAccountIndex = accountIndex + 2
+      const privateKey = AVAILABLE_HARDHAT_PRIVATE_KEYS[accountIndex]
+      
       // Register the user
       await apiClient.register({
         username: values.username,
+        email: values.email,
         password: values.password,
         wallet_address: values.walletAddress,
+        account_index: actualAccountIndex,
+        private_key: privateKey,
       })
       
       // Auto-login after successful registration
@@ -82,6 +99,7 @@ export function RegistrationForm() {
       // Redirect to events page
       router.push("/events")
     } catch (err) {
+      console.error('Registration error:', err)
       setError(err instanceof Error ? err.message : "Registration failed")
     } finally {
       setIsLoading(false)
@@ -100,6 +118,26 @@ export function RegistrationForm() {
               <FormControl>
                 <Input 
                   placeholder="Choose a username" 
+                  className="h-11"
+                  disabled={isLoading}
+                  {...field} 
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
+        
+        <FormField
+          control={form.control}
+          name="email"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>Email</FormLabel>
+              <FormControl>
+                <Input 
+                  type="email" 
+                  placeholder="Enter your email" 
                   className="h-11"
                   disabled={isLoading}
                   {...field} 
@@ -143,10 +181,10 @@ export function RegistrationForm() {
                   </SelectTrigger>
                 </FormControl>
                 <SelectContent>
-                  {HARDHAT_ACCOUNTS.map((address, index) => (
+                  {AVAILABLE_HARDHAT_ACCOUNTS.map((address: string, index: number) => (
                     <SelectItem key={address} value={address}>
                       <div className="flex flex-col">
-                        <span>Account {index + 1}</span>
+                        <span>Account {index + 3}</span>
                         <span className="text-xs text-gray-500 truncate">
                           {address.slice(0, 10)}...{address.slice(-8)}
                         </span>
