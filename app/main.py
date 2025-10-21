@@ -8,6 +8,7 @@ from routes.event_route import router as event_router
 from routes.market_route import router as market_router
 from routes.account_route import router as account_router
 from routes.auth_route import router as auth_router
+from ticket_queue.queue_routes import router as queue_router
 from middleware.auth import AuthMiddleware
 from database.db import engine, Base
 
@@ -66,6 +67,7 @@ app.include_router(auth_router)
 app.include_router(event_router)
 app.include_router(market_router)
 app.include_router(account_router)
+app.include_router(queue_router)
 
 
 @app.get("/")

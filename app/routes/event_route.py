@@ -205,6 +205,8 @@ async def get_event_details(event_id: int):
             status_code=500, detail=f"Failed to get event details: {str(e)}"
         )
 
+from ticket_queue.queue_manager import is_allowed_entry
+from ticket_queue.queue_manager import leave_queue
 
 @router.post("/buy", summary="Buy fresh tickets from event organiser")
 async def buy_tickets(
@@ -213,8 +215,12 @@ async def buy_tickets(
         require_authenticated_user
     ),  # Authentication required, any role
 ):
-    """Buy tickets - requires authentication but any role is allowed"""
+    """Buy tickets - requires authentication and active in queue but any role is allowed"""
     try:
+        user_id = user_info.get("id") or str(request.user_account)
+        if not is_allowed_entry(user_id):
+            raise HTTPException(status_code=403, detail="Please wait in the queue, not your turn yet")
+
         if not web3_manager.is_connected():
             raise HTTPException(
                 status_code=503, detail="Blockchain connection unavailable"
@@ -285,6 +291,8 @@ async def buy_tickets(
         txn["value"] = total_price
 
         tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account)
+
+        leave_queue(user_id)
 
         return {
             "success": True,
