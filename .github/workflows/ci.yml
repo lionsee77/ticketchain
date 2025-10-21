@@ -41,8 +41,8 @@ jobs:
           export DOCKER_BUILDKIT=1
           export COMPOSE_DOCKER_CLI_BUILD=1
 
-          # Build all services
-          docker compose build --parallel --build-arg BUILDKIT_INLINE_CACHE=1
+          # Build only the services we need for testing (exclude frontend)
+          docker compose build api blockchain
 
           echo "=== Docker system usage after build ==="
           docker system df
@@ -59,10 +59,17 @@ jobs:
           PROJECT_NAME=$(basename $(pwd))
           echo "Project name: $PROJECT_NAME"
 
-          # Save the built images (only the ones that were actually built)
+          # Get actual image names from docker compose
+          API_IMAGE=$(docker compose config | grep -A 10 "services:" | grep -A 5 "api:" | grep "image:" | cut -d: -f2- | xargs || echo "${PROJECT_NAME,,}-api:latest")
+          BLOCKCHAIN_IMAGE=$(docker compose config | grep -A 20 "services:" | grep -A 5 "blockchain:" | grep "image:" | cut -d: -f2- | xargs || echo "${PROJECT_NAME,,}-blockchain:latest")
+
+          echo "API Image: $API_IMAGE"
+          echo "Blockchain Image: $BLOCKCHAIN_IMAGE"
+
+          # Save the built images
           docker save -o /tmp/ticketchain-images.tar \
-            ${PROJECT_NAME,,}-api:latest \
-            ${PROJECT_NAME,,}-blockchain:latest
+            $API_IMAGE \
+            $BLOCKCHAIN_IMAGE
 
       - name: Upload Docker images
         uses: actions/upload-artifact@v4
@@ -118,7 +125,8 @@ jobs:
       - name: Start services
         run: |
           echo "Starting services for testing..."
-          docker compose up --detach
+          # Only start the services we need for testing (exclude frontend)
+          docker compose up postgres redis blockchain api --detach
 
       - name: Wait for services to be ready
         run: |
@@ -159,8 +167,13 @@ jobs:
               "username": "testuser",
               "email": "test@example.com",
               "password": "password123",
-              "full_name": "Test User"
+              "full_name": "Test User",
+              "account_index": 3,
+              "wallet_address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+              "private_key": "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
             }')
+
+          echo "User Registration Response: $USER_RESPONSE"
 
           USER_TOKEN=$(echo "$USER_RESPONSE" | jq -r '.access_token // empty')
 
@@ -169,6 +182,7 @@ jobs:
             echo "USER_TOKEN=$USER_TOKEN" >> $GITHUB_ENV
           else
             echo "❌ User registration failed"
+            echo "Response was: $USER_RESPONSE"
             exit 1
           fi
 
@@ -178,8 +192,10 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "username": "admin",
-              "password": "admin123"
+              "password": "password123"
             }')
+
+          echo "Admin Login Response: $ADMIN_RESPONSE"
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
 
@@ -188,6 +204,7 @@ jobs:
             echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
           else
             echo "❌ Admin login failed"
+            echo "Response was: $ADMIN_RESPONSE"
             exit 1
           fi
 
@@ -239,8 +256,10 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "username": "admin",
-              "password": "admin123"
+              "password": "password123"
             }')
+
+          echo "Admin Login Response: $ADMIN_RESPONSE"
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
 
@@ -249,6 +268,7 @@ jobs:
             echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
           else
             echo "❌ Admin authentication failed"
+            echo "Response was: $ADMIN_RESPONSE"
             exit 1
           fi
 
@@ -332,8 +352,10 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "username": "admin",
-              "password": "admin123"
+              "password": "password123"
             }')
+
+          echo "Admin Login Response: $ADMIN_RESPONSE"
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
 
@@ -342,6 +364,7 @@ jobs:
             echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
           else
             echo "❌ Admin authentication failed"
+            echo "Response was: $ADMIN_RESPONSE"
             exit 1
           fi
 
