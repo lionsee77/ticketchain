@@ -159,7 +159,10 @@ jobs:
               "username": "testuser",
               "email": "test@example.com",
               "password": "password123",
-              "full_name": "Test User"
+              "full_name": "Test User",
+              "account_index": 3,
+              "wallet_address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+              "private_key": "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
             }')
 
           USER_TOKEN=$(echo "$USER_RESPONSE" | jq -r '.access_token // empty')
@@ -178,7 +181,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "username": "admin",
-              "password": "admin123"
+              "password": "password123"
             }')
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
@@ -239,7 +242,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "username": "admin",
-              "password": "admin123"
+              "password": "password123"
             }')
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
@@ -332,7 +335,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "username": "admin",
-              "password": "admin123"
+              "password": "password123"
             }')
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')

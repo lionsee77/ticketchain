@@ -90,20 +90,79 @@ def create_initial_admin():
             db=db,
             username="admin",
             email="admin@ticketchain.com",
-            password="admin123",
+            password="password123",
             full_name="System Administrator",
             roles=["admin", "user"],
+            account_index=0,
+            wallet_address="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
+            private_key="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
         )
 
         print("✅ Initial admin user created successfully!")
         print("   Username: admin")
         print("   Email: admin@ticketchain.com")
-        print("   Password: admin123")
+        print("   Password: password123")
         print(f"   Roles: {[role.name for role in admin_user.roles]}")
+        print(f"   Wallet Address: {admin_user.wallet_address}")
+        print(f"   Wallet Priv Key: {admin_user.private_key}")
+        print(f"   Hardhat account Index: {admin_user.account_index}")
+        
         print("⚠️  IMPORTANT: Change the default password in production!")
 
     except Exception as e:
         print(f"❌ Error creating initial admin: {e}")
+        db.rollback()
+    finally:
+        db.close()
+
+def create_initial_organiser():
+    """Create initial organiser user if no organiser users exist"""
+    print("Setting up initial organiser user...")
+
+    db = SessionLocal()
+    try:
+        # Check if organiser role exists
+        organiser_role = db.query(Role).filter(Role.name == "organiser").first()
+        if not organiser_role:
+            print("❌ Organiser role not found! Make sure roles are created first.")
+            return
+
+        # Check if any users have organiser role
+        existing_organisers = (
+            db.query(User).join(User.roles).filter(Role.name == "organiser").count()
+        )
+        if existing_organisers > 0:
+            print(f"Organiser users already exist ({existing_organisers} found), skipping...")
+            return
+
+        # Create initial organiser user
+        print("Creating initial organiser user...")
+
+        organiser_user = auth_service.create_user(
+            db=db,
+            username="organiser",
+            email="organiser@ticketchain.com",
+            password="password123",
+            full_name="Event Organiser",
+            roles=["organiser", "user"],
+            account_index=1,
+            wallet_address="0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
+            private_key="0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+        )
+
+        print("✅ Initial organiser user created successfully!")
+        print("   Username: organiser")
+        print("   Email: organiser@ticketchain.com")
+        print("   Password: password123")
+        print(f"   Roles: {[role.name for role in organiser_user.roles]}")
+        print(f"   Wallet Address: {organiser_user.wallet_address}")
+        print(f"   Wallet Priv Key: {organiser_user.private_key}")
+        print(f"   Hardhat account Index: {organiser_user.account_index}")
+        
+        print("⚠️  IMPORTANT: Change the default password in production!")
+
+    except Exception as e:
+        print(f"❌ Error creating initial organiser: {e}")
         db.rollback()
     finally:
         db.close()
@@ -122,6 +181,7 @@ def main():
 
         # Create initial admin user
         create_initial_admin()
+        create_initial_organiser()
 
         print("✅ Database initialization completed successfully!")
 

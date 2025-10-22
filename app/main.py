@@ -73,5 +73,11 @@ async def root():
     return {"message": "TicketChain API is running"}
 
 
+@app.options("/{path:path}")
+async def handle_options(path: str):
+    """Handle all OPTIONS requests for CORS preflight"""
+    return {"message": "CORS preflight"}
+
+
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)

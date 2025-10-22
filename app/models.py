@@ -37,6 +37,17 @@ class BuyListingRequest(BaseModel):
     ticket_id: int
     buyer_account: int  # Hardhat test account index (0-19)
 
+class ListingResponse(BaseModel):
+    ticket_id: int
+    seller_address: str
+    price: int
+    event_id: int
+    is_active: bool
+
+class MarketListingsResponse(BaseModel):
+    listings: list[ListingResponse]
+    total: int
+    message: str
 
 # --- Approval Models ---
 class ApprovalRequest(BaseModel):
@@ -53,6 +64,9 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
+    account_index: int
+    wallet_address: str
+    private_key: str
 
 
 class UserLogin(BaseModel):
@@ -81,6 +95,9 @@ class UserProfile(BaseModel):
     is_verified: bool
     created_at: datetime
     roles: list[str]
+    account_index: int
+    wallet_address: str
+    private_key: str  
 
 
 class MessageResponse(BaseModel):
