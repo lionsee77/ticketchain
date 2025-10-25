@@ -15,16 +15,23 @@ class Config:
     RESALE_MARKET_ADDRESS = os.getenv("RESALE_MARKET_ADDRESS")
     LOYALTY_POINT_ADDRESS = os.getenv("LOYALTY_POINT_ADDRESS")
     LOYALTY_SYSTEM_ADDRESS = os.getenv("LOYALTY_SYSTEM_ADDRESS")
+    TICKET_NFT_ADDRESS = os.getenv("TICKET_NFT_ADDRESS")
 
     # Contract ABI file paths
     EVENT_MANAGER_ABI_FILE = "EventManagerABI.json"
     RESALE_MARKET_ABI_FILE = "ResaleMarketABI.json"
     LOYALTY_POINT_ABI_FILE = "LoyaltyPointABI.json"
     LOYALTY_SYSTEM_ABI_FILE = "LoyaltySystemABI.json"
+    TICKET_NFT_ABI_FILE = "TicketNFTABI.json"
 
     # Blockchain settings
     DEFAULT_GAS = 300000
     DEFAULT_GAS_PRICE_GWEI = "10"
+
+    # Database configuration
+    DATABASE_URL = os.getenv(
+        "DATABASE_URL", "postgresql://user:password@localhost:5432/ticketchain"
+    )
 
     # Redis configuration
     REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379")
@@ -45,6 +52,7 @@ class Config:
             ("RESALE_MARKET_ADDRESS", cls.RESALE_MARKET_ADDRESS),
             ("LOYALTY_POINT_ADDRESS", cls.LOYALTY_POINT_ADDRESS),
             ("LOYALTY_SYSTEM_ADDRESS", cls.LOYALTY_SYSTEM_ADDRESS),
+            ("TICKET_NFT_ADDRESS", cls.TICKET_NFT_ADDRESS),
         ]
 
         missing_vars = []

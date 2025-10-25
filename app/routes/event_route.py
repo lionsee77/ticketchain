@@ -1,6 +1,10 @@
 from fastapi import APIRouter, HTTPException, Depends
 from models import CreateEventRequest, BuyTicketsRequest
 from web3_manager import web3_manager
+from dependencies.role_deps import (
+    require_authenticated_user,
+    require_roles,
+)
 
 # Initialize router
 router = APIRouter(prefix="/events", tags=["events"])
@@ -8,7 +12,15 @@ router = APIRouter(prefix="/events", tags=["events"])
 
 @router.post("/create")
 # requires Unix timestamp obtain via CLI -> date -j -f "%d%m%Y" "20102026" "+%s"
-async def create_event(request: CreateEventRequest):
+async def create_event(
+    request: CreateEventRequest,
+    user_info: dict = Depends(
+        require_roles(
+            ["admin", "organiser"]
+        ),  # Authorization: admin or organiser roles required
+    ),
+):
+    """Create a new event - requires admin or organiser role"""
     try:
         # Check Web3 connection
         if not web3_manager.is_connected():
@@ -92,7 +104,9 @@ async def fetch_all_events():
 
 
 @router.post("/{event_id}/close", summary="Close event (organiser/admin only)")
-def close_event(event_id: int):
+def close_event(
+    event_id: int, user_info: dict = Depends(require_roles(["admin", "organiser"]))
+):
     try:
         # Check Web3 connection
         if not web3_manager.is_connected():
@@ -189,8 +203,15 @@ async def get_event_details(event_id: int):
             status_code=500, detail=f"Failed to get event details: {str(e)}"
         )
 
+
 @router.post("/buy", summary="Buy fresh tickets from event organiser")
-async def buy_tickets(request: BuyTicketsRequest):
+async def buy_tickets(
+    request: BuyTicketsRequest,
+    user_info: dict = Depends(
+        require_authenticated_user
+    ),  # Authentication required, any role
+):
+    """Buy tickets - requires authentication but any role is allowed"""
     try:
         if not web3_manager.is_connected():
             raise HTTPException(

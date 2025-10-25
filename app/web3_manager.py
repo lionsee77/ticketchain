@@ -58,6 +58,10 @@ class Web3Manager:
             "LoyaltySystem", config.LOYALTY_SYSTEM_ABI_FILE
         )
 
+        self.ticket_nft_abi = self._load_contract_abi(
+            "TicketNFT", config.TICKET_NFT_ABI_FILE
+        )
+
         if not config.EVENT_MANAGER_ADDRESS:
             raise ValueError("EVENT_MANAGER_ADDRESS is required")
 
@@ -69,6 +73,8 @@ class Web3Manager:
        
         if not config.LOYALTY_SYSTEM_ADDRESS:
             raise ValueError("LOYALTY_SYSTEM_ADDRESS is required")
+        if not config.TICKET_NFT_ADDRESS:
+            raise ValueError("TICKET_NFT_ADDRESS is required")
 
         self.event_manager = self.w3.eth.contract(
             address=self.w3.to_checksum_address(config.EVENT_MANAGER_ADDRESS),
@@ -91,6 +97,11 @@ class Web3Manager:
         self.loyalty_system = self.w3.eth.contract(
             address=self.w3.to_checksum_address(config.LOYALTY_SYSTEM_ADDRESS),
             abi=self.loyalty_system_abi,
+        )
+
+        self.ticket_nft = self.w3.eth.contract(
+            address=self.w3.to_checksum_address(config.TICKET_NFT_ADDRESS),
+            abi=self.ticket_nft_abi,
         )
 
     def _load_contract_abi(self, contract_name, fallback_filename):
@@ -239,6 +250,56 @@ class Web3Manager:
         if not hasattr(self, "loyalty_system"):
             raise RuntimeError("LoyaltySystem contract not initialised")
         return self.loyalty_system.functions.quoteWeiFromPoints(int(point_units)).call()
+    def check_resale_market_approval(self, user_account_index: int) -> bool:
+        """Check if user has approved ResaleMarket to transfer their tickets"""
+        try:
+            user_address = self.get_user_address(user_account_index)
+            resale_market_address = self.market_manager.address
+
+            # Check if user has approved ResaleMarket for all their tickets
+            is_approved = self.ticket_nft.functions.isApprovedForAll(
+                user_address, resale_market_address
+            ).call()
+
+            return is_approved
+        except Exception as e:
+            print(f"Error checking approval: {str(e)}")
+            return False
+
+    def approve_resale_market(self, user_account_index: int):
+        """Approve ResaleMarket to transfer user's tickets"""
+        try:
+            user_account = self.get_user_account(user_account_index)
+            resale_market_address = self.market_manager.address
+
+            # Build setApprovalForAll transaction
+            fn = self.ticket_nft.functions.setApprovalForAll(
+                resale_market_address, True
+            )
+            txn = self.build_user_transaction(fn, user_account)
+            tx_hash = self.sign_and_send_user_transaction(txn, user_account)
+
+            return tx_hash
+        except Exception as e:
+            raise Exception(f"Failed to approve ResaleMarket: {str(e)}")
+
+    def revoke_resale_market_approval(self, user_account_index: int):
+        """Revoke ResaleMarket approval to transfer user's tickets"""
+        try:
+            user_account = self.get_user_account(user_account_index)
+            resale_market_address = self.market_manager.address
+
+            # Build setApprovalForAll transaction with False
+            fn = self.ticket_nft.functions.setApprovalForAll(
+                resale_market_address, False
+            )
+            txn = self.build_user_transaction(fn, user_account)
+            tx_hash = self.sign_and_send_user_transaction(txn, user_account)
+
+            return tx_hash
+        except Exception as e:
+            raise Exception(f"Failed to revoke ResaleMarket approval: {str(e)}")
+
 
 # Create a singleton instance
 web3_manager = Web3Manager()
