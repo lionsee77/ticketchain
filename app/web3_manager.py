@@ -243,6 +243,32 @@ class Web3Manager:
         if not hasattr(self, "loyalty_system"):
             raise RuntimeError("LoyaltySystem contract not initialised")
         return self.loyalty_system.functions.quoteWeiFromPoints(int(point_units)).call()
+
+    def award_loyalty_points(self, to_address: str, wei_amount: int) -> int:
+        """Award loyalty points to a user based on wei amount spent."""
+        if not hasattr(self, "loyalty_system"):
+            raise RuntimeError("LoyaltySystem contract not initialised")
+        
+        # Use the oracle account to award points (oracle is authorized to mint points)
+        oracle_account = self.get_user_account(0)  # Assuming oracle is account 0
+        
+        function_call = self.loyalty_system.functions.awardPoints(
+            self.w3.to_checksum_address(to_address), 
+            int(wei_amount)
+        )
+        
+        # Build and send the transaction from oracle account
+        txn = self.build_user_transaction(function_call, oracle_account, gas=200000)
+        tx_hash = self.sign_and_send_user_transaction(txn, oracle_account)
+        
+        # Get the transaction receipt to check if points were awarded
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        
+        # Parse the PointsAwarded event to get the actual points minted
+        points_awarded_event = self.loyalty_system.events.PointsAwarded().process_receipt(receipt)
+        if points_awarded_event:
+            return points_awarded_event[0]['args']['pointsMinted']
+        return 0
     def check_resale_market_approval(self, user_account_index: int) -> bool:
         """Check if user has approved ResaleMarket to transfer their tickets"""
         try:

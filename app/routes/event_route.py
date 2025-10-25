@@ -284,6 +284,14 @@ async def buy_tickets(
 
         tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account)
 
+        # Award loyalty points after successful ticket purchase
+        loyalty_points_awarded = 0
+        try:
+            loyalty_points_awarded = web3_manager.award_loyalty_points(user_address, total_price)
+        except Exception as e:
+            # Log the error but don't fail the ticket purchase
+            print(f"Warning: Failed to award loyalty points: {str(e)}")
+
         return {
             "success": True,
             "tx_hash": tx_hash.hex(),
@@ -293,7 +301,8 @@ async def buy_tickets(
             "total_price_eth": web3_manager.w3.from_wei(total_price, "ether"),
             "buyer_address": user_address,
             "user_account_index": request.user_account,
-            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User account {request.user_account} paid and received NFTs.",
+            "loyalty_points_awarded": loyalty_points_awarded,
+            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User account {request.user_account} paid and received NFTs. Awarded {loyalty_points_awarded} loyalty points.",
         }
 
     except HTTPException:
