@@ -67,7 +67,6 @@ async def create_event(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create event: {str(e)}")
 
-
 @router.get("/all", summary="List all events")
 async def fetch_all_events():
     try:
@@ -76,7 +75,6 @@ async def fetch_all_events():
             raise HTTPException(
                 status_code=503, detail="Blockchain connection unavailable"
             )
-
         total_num_of_events = web3_manager.event_manager.functions.eventCounter().call()
         event_holder = []
         for i in range(1, total_num_of_events + 1):
@@ -294,6 +292,14 @@ async def buy_tickets(
 
         leave_queue(user_id)
 
+        # Award loyalty points after successful ticket purchase
+        loyalty_points_awarded = 0
+        try:
+            loyalty_points_awarded = web3_manager.award_loyalty_points(user_address, total_price)
+        except Exception as e:
+            # Log the error but don't fail the ticket purchase
+            print(f"Warning: Failed to award loyalty points: {str(e)}")
+
         return {
             "success": True,
             "tx_hash": tx_hash.hex(),
@@ -303,7 +309,8 @@ async def buy_tickets(
             "total_price_eth": web3_manager.w3.from_wei(total_price, "ether"),
             "buyer_address": user_address,
             "user_account_index": request.user_account,
-            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User account {request.user_account} paid and received NFTs.",
+            "loyalty_points_awarded": loyalty_points_awarded,
+            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User account {request.user_account} paid and received NFTs. Awarded {loyalty_points_awarded} loyalty points.",
         }
 
     except HTTPException:

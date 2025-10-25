@@ -51,7 +51,12 @@ class Web3Manager:
         self.resale_market_abi = self._load_contract_abi(
             "ResaleMarket", config.RESALE_MARKET_ABI_FILE
         )
-
+        self.loyalty_point_abi = self._load_contract_abi(
+            "LoyaltyPoint", config.LOYALTY_POINT_ABI_FILE
+        )
+        self.loyalty_system_abi = self._load_contract_abi(
+            "LoyaltySystem", config.LOYALTY_SYSTEM_ABI_FILE
+        )
         self.ticket_nft_abi = self._load_contract_abi(
             "TicketNFT", config.TICKET_NFT_ABI_FILE
         )
@@ -62,6 +67,12 @@ class Web3Manager:
         if not config.RESALE_MARKET_ADDRESS:
             raise ValueError("RESALE_MARKET_ADDRESS is required")
 
+        if not config.LOYALTY_POINT_ADDRESS:
+            raise ValueError("LOYALTY_POINT_ADDRESS is required")
+       
+        if not config.LOYALTY_SYSTEM_ADDRESS:
+            raise ValueError("LOYALTY_SYSTEM_ADDRESS is required")
+        
         if not config.TICKET_NFT_ADDRESS:
             raise ValueError("TICKET_NFT_ADDRESS is required")
 
@@ -73,7 +84,14 @@ class Web3Manager:
             address=self.w3.to_checksum_address(config.RESALE_MARKET_ADDRESS),
             abi=self.resale_market_abi,
         )
-
+        self.loyalty_point = self.w3.eth.contract(
+            address=self.w3.to_checksum_address(config.LOYALTY_POINT_ADDRESS),
+            abi=self.loyalty_point_abi,
+        )
+        self.loyalty_system = self.w3.eth.contract(
+            address=self.w3.to_checksum_address(config.LOYALTY_SYSTEM_ADDRESS),
+            abi=self.loyalty_system_abi,
+        )
         self.ticket_nft = self.w3.eth.contract(
             address=self.w3.to_checksum_address(config.TICKET_NFT_ADDRESS),
             abi=self.ticket_nft_abi,
@@ -195,6 +213,62 @@ class Web3Manager:
         tx_hash = self.w3.eth.send_raw_transaction(raw_tx)
         return tx_hash
 
+    def get_points_balance(self, user_address: str) -> int:
+        """Return LoyaltyPoint balance (token units) for a user."""
+        if not hasattr(self, "loyalty_point"):
+            raise RuntimeError("LoyaltyPoint contract not initialised")
+        return self.loyalty_point.functions.balanceOf(
+            self.w3.to_checksum_address(user_address)
+        ).call()
+
+    def get_points_allowance(self, owner: str) -> int:
+        """Allowance that 'owner' has granted to the LoyaltySystem."""
+        if not hasattr(self, "loyalty_point") or not hasattr(self, "loyalty_system"):
+            raise RuntimeError("Loyalty contracts not initialised")
+        return self.loyalty_point.functions.allowance(
+            self.w3.to_checksum_address(owner),
+            self.w3.to_checksum_address(self.loyalty_system.address),
+        ).call()
+
+    def preview_points_available(self, user_address: str, ticket_wei: int) -> int:
+        """How many points can be redeemed (partial up to 30%) for a given ticket price."""
+        if not hasattr(self, "loyalty_system"):
+            raise RuntimeError("LoyaltySystem contract not initialised")
+        return self.loyalty_system.functions.previewPointsAvailableForRedemption(
+            self.w3.to_checksum_address(user_address), int(ticket_wei)
+        ).call()
+
+    def quote_wei_from_points(self, point_units: int) -> int:
+        """Convert points -> wei using LoyaltySystem's current rate."""
+        if not hasattr(self, "loyalty_system"):
+            raise RuntimeError("LoyaltySystem contract not initialised")
+        return self.loyalty_system.functions.quoteWeiFromPoints(int(point_units)).call()
+
+    def award_loyalty_points(self, to_address: str, wei_amount: int) -> int:
+        """Award loyalty points to a user based on wei amount spent."""
+        if not hasattr(self, "loyalty_system"):
+            raise RuntimeError("LoyaltySystem contract not initialised")
+        
+        # Use the oracle account to award points (oracle is authorized to mint points)
+        oracle_account = self.get_user_account(0)  # Assuming oracle is account 0
+        
+        function_call = self.loyalty_system.functions.awardPoints(
+            self.w3.to_checksum_address(to_address), 
+            int(wei_amount)
+        )
+        
+        # Build and send the transaction from oracle account
+        txn = self.build_user_transaction(function_call, oracle_account, gas=200000)
+        tx_hash = self.sign_and_send_user_transaction(txn, oracle_account)
+        
+        # Get the transaction receipt to check if points were awarded
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+        
+        # Parse the PointsAwarded event to get the actual points minted
+        points_awarded_event = self.loyalty_system.events.PointsAwarded().process_receipt(receipt)
+        if points_awarded_event:
+            return points_awarded_event[0]['args']['pointsMinted']
+        return 0
     def check_resale_market_approval(self, user_account_index: int) -> bool:
         """Check if user has approved ResaleMarket to transfer their tickets"""
         try:

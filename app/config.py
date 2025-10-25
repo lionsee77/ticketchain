@@ -13,11 +13,15 @@ class Config:
     ORACLE_PRIVATE_KEY = os.getenv("ORACLE_PRIVATE_KEY")
     EVENT_MANAGER_ADDRESS = os.getenv("EVENT_MANAGER_ADDRESS")
     RESALE_MARKET_ADDRESS = os.getenv("RESALE_MARKET_ADDRESS")
+    LOYALTY_POINT_ADDRESS = os.getenv("LOYALTY_POINT_ADDRESS")
+    LOYALTY_SYSTEM_ADDRESS = os.getenv("LOYALTY_SYSTEM_ADDRESS")
     TICKET_NFT_ADDRESS = os.getenv("TICKET_NFT_ADDRESS")
 
     # Contract ABI file paths
     EVENT_MANAGER_ABI_FILE = "EventManagerABI.json"
     RESALE_MARKET_ABI_FILE = "ResaleMarketABI.json"
+    LOYALTY_POINT_ABI_FILE = "LoyaltyPointABI.json"
+    LOYALTY_SYSTEM_ABI_FILE = "LoyaltySystemABI.json"
     TICKET_NFT_ABI_FILE = "TicketNFTABI.json"
 
     # Blockchain settings
@@ -46,6 +50,8 @@ class Config:
             ("ORACLE_PRIVATE_KEY", cls.ORACLE_PRIVATE_KEY),
             ("EVENT_MANAGER_ADDRESS", cls.EVENT_MANAGER_ADDRESS),
             ("RESALE_MARKET_ADDRESS", cls.RESALE_MARKET_ADDRESS),
+            ("LOYALTY_POINT_ADDRESS", cls.LOYALTY_POINT_ADDRESS),
+            ("LOYALTY_SYSTEM_ADDRESS", cls.LOYALTY_SYSTEM_ADDRESS),
             ("TICKET_NFT_ADDRESS", cls.TICKET_NFT_ADDRESS),
         ]
 

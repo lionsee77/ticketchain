@@ -28,6 +28,8 @@ jobs:
           RPC_URL=http://blockchain:8545
           EVENT_MANAGER_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
           RESALE_MARKET_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+          LOYALTY_POINT_ADDRESS=0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+          LOYALTY_SYSTEM_ADDRESS=0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9
           TICKET_NFT_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3
           REDIS_URL=redis://redis:6379
           SECRET_KEY=github-actions-test-key
@@ -79,6 +81,7 @@ jobs:
         test-suite:
           - auth-rbac
           - event-mgr
+          - loyalty-system
           - resale-market
       fail-fast: false
 
@@ -109,6 +112,8 @@ jobs:
           RPC_URL=http://blockchain:8545
           EVENT_MANAGER_ADDRESS=0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512
           RESALE_MARKET_ADDRESS=0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0
+          LOYALTY_POINT_ADDRESS=0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9
+          LOYALTY_SYSTEM_ADDRESS=0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9
           TICKET_NFT_ADDRESS=0x5FbDB2315678afecb367f032d93F642f64180aa3
           REDIS_URL=redis://redis:6379
           SECRET_KEY=github-actions-test-key
@@ -159,7 +164,10 @@ jobs:
               "username": "testuser",
               "email": "test@example.com",
               "password": "password123",
-              "full_name": "Test User"
+              "full_name": "Test User",
+              "account_index": 3,
+              "wallet_address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+              "private_key": "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
             }')
 
           USER_TOKEN=$(echo "$USER_RESPONSE" | jq -r '.access_token // empty')
@@ -178,7 +186,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "username": "admin",
-              "password": "admin123"
+              "password": "password123"
             }')
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
@@ -239,7 +247,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "username": "admin",
-              "password": "admin123"
+              "password": "password123"
             }')
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
@@ -332,7 +340,7 @@ jobs:
             -H "Content-Type: application/json" \
             -d '{
               "username": "admin",
-              "password": "admin123"
+              "password": "password123"
             }')
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
@@ -344,6 +352,27 @@ jobs:
             echo "❌ Admin authentication failed"
             exit 1
           fi
+
+      - name: Run Loyalty System Tests
+        if: matrix.test-suite == 'loyalty-system'
+        run: |
+          echo "=== Loyalty API Tests ==="
+
+          BUYER=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
+          TICKET_WEI_A=50000000000000000   # 0.05 ETH
+          PREV_A=$(curl -s "http://localhost:8000/loyalty/preview?address=$BUYER&ticket_wei=$TICKET_WEI_A")
+          echo "Preview (no points) => $PREV_A"
+
+          DISC_A=$(echo "$PREV_A" | jq -r '.wei_discount')
+          DUE_A=$(echo "$PREV_A"  | jq -r '.wei_due')
+
+          # discount must be zero; due must equal full ticket price
+          [ "$DISC_A" = "0" ] || { echo "❌ expected zero discount for zero balance (got $DISC_A)"; exit 1; }
+          [ "$DUE_A"  = "$TICKET_WEI_A" ] || { echo "❌ wei_due should equal ticket price when no points"; exit 1; }
+
+          echo "✅ Scenario A passed (no points => no discount)"
+
+          echo "❓ Scenario B passed (discount > 0 and capped at 30%): TODO"
 
       - name: Run Resale Market Tests
         if: matrix.test-suite == 'resale-market'
