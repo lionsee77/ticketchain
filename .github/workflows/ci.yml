@@ -81,6 +81,7 @@ jobs:
         test-suite:
           - auth-rbac
           - event-mgr
+          - loyalty-system
           - resale-market
       fail-fast: false
 
@@ -324,6 +325,35 @@ jobs:
             exit 1
           fi
 
+      - name: Setup Authentication for Resale Tests
+        if: matrix.test-suite == 'resale-market'
+        run: |
+          echo "=== Setting up Authentication for Resale Tests ==="
+
+          # Install jq for JSON processing
+          sudo apt-get update && sudo apt-get install -y jq
+
+          # Get admin token for event creation
+          ADMIN_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "admin",
+              "password": "password123"
+            }')
+
+          ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
+
+          if [ -n "$ADMIN_TOKEN" ] && [ "$ADMIN_TOKEN" != "null" ]; then
+            echo "✅ Admin authentication successful for resale tests"
+            echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
+          else
+            echo "❌ Admin authentication failed"
+            exit 1
+          fi
+
+      - name: Run Loyalty System Tests
+        if: matrix.test-suite == 'loyalty-system'
+        run: |
           echo "=== Loyalty API Tests ==="
 
           BUYER=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
@@ -357,31 +387,6 @@ jobs:
           [ "$LEQ_CAP" = "true" ] || { echo "❌ discount exceeds 30% cap (disc=$DISC_B cap=$CAP_WEI_B)"; exit 1; }
 
           echo "✅ Scenario B passed (discount > 0 and capped at 30%)"
-      - name: Setup Authentication for Resale Tests
-        if: matrix.test-suite == 'resale-market'
-        run: |
-          echo "=== Setting up Authentication for Resale Tests ==="
-
-          # Install jq for JSON processing
-          sudo apt-get update && sudo apt-get install -y jq
-
-          # Get admin token for event creation
-          ADMIN_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/login" \
-            -H "Content-Type: application/json" \
-            -d '{
-              "username": "admin",
-              "password": "password123"
-            }')
-
-          ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
-
-          if [ -n "$ADMIN_TOKEN" ] && [ "$ADMIN_TOKEN" != "null" ]; then
-            echo "✅ Admin authentication successful for resale tests"
-            echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
-          else
-            echo "❌ Admin authentication failed"
-            exit 1
-          fi
 
       - name: Run Resale Market Tests
         if: matrix.test-suite == 'resale-market'

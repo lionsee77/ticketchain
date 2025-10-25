@@ -39,6 +39,7 @@ async function exportABI() {
         ),
         outputFile: "LoyaltySystemABI.json",
       },
+      {
         name: "TicketNFT",
         artifactPath: path.join(
           __dirname,

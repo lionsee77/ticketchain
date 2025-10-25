@@ -57,7 +57,6 @@ class Web3Manager:
         self.loyalty_system_abi = self._load_contract_abi(
             "LoyaltySystem", config.LOYALTY_SYSTEM_ABI_FILE
         )
-
         self.ticket_nft_abi = self._load_contract_abi(
             "TicketNFT", config.TICKET_NFT_ABI_FILE
         )
@@ -73,6 +72,7 @@ class Web3Manager:
        
         if not config.LOYALTY_SYSTEM_ADDRESS:
             raise ValueError("LOYALTY_SYSTEM_ADDRESS is required")
+        
         if not config.TICKET_NFT_ADDRESS:
             raise ValueError("TICKET_NFT_ADDRESS is required")
 
@@ -80,16 +80,10 @@ class Web3Manager:
             address=self.w3.to_checksum_address(config.EVENT_MANAGER_ADDRESS),
             abi=self.event_manager_abi,
         )
-        self.loyalty_point = self.w3.eth.contract(
-            address=self.w3.to_checksum_address(config.LOYALTY_POINT_ADDRESS),
-            abi=self.loyalty_point_abi,
-        )
-        self.loyalty_system = self.w3.eth.contract(
-            address=self.w3.to_checksum_address(config.LOYALTY_SYSTEM_ADDRESS),
-            abi=self.loyalty_system_abi,
         self.market_manager = self.w3.eth.contract(
             address=self.w3.to_checksum_address(config.RESALE_MARKET_ADDRESS),
             abi=self.resale_market_abi,
+        )
         self.loyalty_point = self.w3.eth.contract(
             address=self.w3.to_checksum_address(config.LOYALTY_POINT_ADDRESS),
             abi=self.loyalty_point_abi,
@@ -98,7 +92,6 @@ class Web3Manager:
             address=self.w3.to_checksum_address(config.LOYALTY_SYSTEM_ADDRESS),
             abi=self.loyalty_system_abi,
         )
-
         self.ticket_nft = self.w3.eth.contract(
             address=self.w3.to_checksum_address(config.TICKET_NFT_ADDRESS),
             abi=self.ticket_nft_abi,
