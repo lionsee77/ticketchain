@@ -78,8 +78,9 @@ For local development without Docker, see individual README files:
 - **EventManager** - Core event and ticket management
 - **TicketNFT** - ERC721 NFT tickets
 - **ResaleMarket** - Secondary ticket marketplace
+- **LoyaltyToken** - ERC20 Loyalty Tokens
+- **LoyaltySystem** - Manages awarding/usage of loyalty tokens
 
 ---
 
 **Note:** The Docker setup uses Hardhat's test accounts for development. 
-

@@ -71,7 +71,7 @@ services:
     networks:
       - ticketchain
     healthcheck:
-      test: ["CMD", "sh", "-c", "test -f /app/shared/EventManagerABI.json && test -f /app/shared/ResaleMarketABI.json && test -f /app/shared/TicketNFTABI.json"]
+      test: ["CMD", "sh", "-c", "test -f /app/shared/EventManagerABI.json && test -f /app/shared/ResaleMarketABI.json && test -f /app/shared/TicketNFTABI.json && test -f /app/shared/LoyaltyPointABI.json && test -f /app/shared/LoyaltySystemABI.json"]
       interval: 5s
       timeout: 3s
       retries: 10
