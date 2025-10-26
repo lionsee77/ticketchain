@@ -31,7 +31,7 @@ def join_queue(user_address: str, points_redeemed: int) -> Dict:
         "user_address": user_address,
         "queue_position": position,
         "points_redeemed": points_redeemed,
-        "is_active": is_active(user_address)
+        "is_active": is_allowed_entry(user_address)
     }
     
 
@@ -47,7 +47,7 @@ def activate_next_users() -> int:
     
     activated = 0
     for user in top_users:
-        if not is_active(user):
+        if not is_allowed_entry(user):
             redis_client.sadd(ACTIVE_KEY, user)
             activated += 1
     
