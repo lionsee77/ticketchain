@@ -3,7 +3,6 @@ from .queue_manager import (
     leave_queue,
     is_allowed_entry,
     join_queue,
-    is_active,
     get_position,
     complete_purchase,
     get_queue_stats)
@@ -54,13 +53,12 @@ async def join_queue_endpoint(request: JoinQueueRequest):
 async def get_queue_position(user_address: str):
     """Get user's current queue position"""
     position = get_position(user_address.lower())
-    active = is_active(user_address.lower())
+    active = is_allowed_entry(user_address.lower())
     
     return {
-        "user_address": user_address,
+        "user_address": user_address.lower(),
         "queue_position": position,
-        "is_active": active,
-        "can_purchase": active
+        "can_purchase": active,
     }
 
 @router.get("/can-purchase/{user_address}")
@@ -68,7 +66,7 @@ async def can_purchase(user_address: str):
     """Check if user can purchase tickets now"""
     return {
         "user_address": user_address,
-        "can_purchase": is_active(user_address.lower())
+        "can_purchase": is_allowed_entry(user_address.lower())
     }
 
 
@@ -79,24 +77,13 @@ async def complete(user_address: str):
     return result
 
 
-# @router.post("/leave/{user_address}")
-# async def leave(user_address: str):
-#     """Leave the queue"""
-#     result = leave_queue(user_address.lower())
-#     return result
-
-
 @router.get("/stats")
 async def stats():
     """Get queue statistics"""
     return get_queue_stats()
 
-@router.post("/leave")
-def leave(user_id: str):
-    """Leave the queue"""
-    return leave_queue(user_id)
 
-@router.post("/is_allowed_entry")
-def is_allowed_entry(user_id: str):
-    """Check if allowed to buy"""
-    return is_allowed_entry(user_id)
+@router.post("/leave")
+def leave(user_address: str):
+    """Leave the queue"""
+    return leave_queue(user_address.lower())

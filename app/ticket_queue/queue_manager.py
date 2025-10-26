@@ -11,16 +11,6 @@ ACTIVE_KEY = "active_buyers" # Set of users currently allowed to buy
 MAX_ACTIVE_BUYERS  = 10 # number of concurrent users allowed to buy
 
 
-# checks if the user is currently allowed to buy
-def is_allowed_entry(user_id: str) -> bool:
-    return r.sismember(ACTIVE_KEY, user_id)
-
-# def leave_queue(user_id: str):
-#     """Remove user from queue or active buyers"""
-#     r.lrem(QUEUE_KEY, 0, user_id)
-#     r.srem(ACTIVE_KEY, user_id)
-#     return {"status": "removed"}
-
 def join_queue(user_address: str, points_redeemed: int) -> Dict:
     # Score: higher points = higher priority, subtract timestamp for tie-breaking
     timestamp = time.time()
@@ -34,7 +24,8 @@ def join_queue(user_address: str, points_redeemed: int) -> Dict:
     position = position + 1 if position is not None else 0
     
     # Auto-activate if slots available
-    activate_next_users()
+    if redis_client.scard(ACTIVE_KEY) < MAX_ACTIVE_BUYERS:
+        activate_next_users()
     
     return {
         "user_address": user_address,
@@ -43,13 +34,6 @@ def join_queue(user_address: str, points_redeemed: int) -> Dict:
         "is_active": is_active(user_address)
     }
     
-def is_active(user_address: str) -> bool:
-    return redis_client.sismember(ACTIVE_KEY, user_address)
-
-
-def get_position(user_address: str) -> int:
-    rank = redis_client.zrevrank(QUEUE_KEY, user_address)
-    return rank + 1 if rank is not None else 0
 
 def activate_next_users() -> int:
     current_active = redis_client.scard(ACTIVE_KEY)
@@ -100,3 +84,13 @@ def get_queue_stats() -> Dict:
         "active_buyers": redis_client.scard(ACTIVE_KEY),
         "available_slots": MAX_ACTIVE_BUYERS - redis_client.scard(ACTIVE_KEY)
     }
+
+    
+def is_allowed_entry(user_address: str) -> bool:
+    return redis_client.sismember(ACTIVE_KEY, user_address)
+
+
+def get_position(user_address: str) -> int:
+    rank = redis_client.zrevrank(QUEUE_KEY, user_address)
+    return rank + 1 if rank is not None else 0
+
