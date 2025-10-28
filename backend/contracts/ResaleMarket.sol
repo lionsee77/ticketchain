@@ -5,6 +5,7 @@ import "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/Address.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/IERC721Receiver.sol";
 
 interface ITicketNFT is IERC721 {
     function isUsed(uint256 tokenId) external view returns (bool);
@@ -22,10 +23,10 @@ interface IEventManager {
     function eventIsActive(uint256 eventId) external view returns (bool);
 }
 
-
-// NOT AN ESCROW
-// Sellers maintain ownership of their ticket but grants ResaleMarket permission to trfr token when buyer wants to buy the Listing
-contract ResaleMarket is ReentrancyGuard, Ownable {
+// ESCROW SYSTEM
+// When sellers list tickets, the NFT is transferred to this contract for escrow
+// When delisted or purchased, the NFT is transferred from this contract
+contract ResaleMarket is ReentrancyGuard, Ownable, IERC721Receiver {
     using Address for address payable; // for sendValue
     struct Listing {
         address seller;
@@ -68,6 +69,16 @@ contract ResaleMarket is ReentrancyGuard, Ownable {
         royaltyBps = _royaltyBps; // set 0 to disable royalty
     }
 
+    // Required to receive ERC721 tokens
+    function onERC721Received(
+        address,
+        address,
+        uint256,
+        bytes calldata
+    ) external pure override returns (bytes4) {
+        return IERC721Receiver.onERC721Received.selector;
+    }
+
     function setResaleCapBps(uint96 bps) external onlyOwner {
         resaleCapBps = bps;
     }
@@ -76,7 +87,7 @@ contract ResaleMarket is ReentrancyGuard, Ownable {
         royaltyBps = bps;
     }
 
-    // Seller lists a ticket. Must also approve the market to transfer the NFT.
+    // Seller lists a ticket. NFT is transferred to this contract for escrow.
     function list(uint256 ticketId, uint256 price) external {
         require(ticket.ownerOf(ticketId) == msg.sender, "Not ticket owner");
         require(!ticket.isUsed(ticketId), "Ticket already used");
@@ -98,6 +109,9 @@ contract ResaleMarket is ReentrancyGuard, Ownable {
             );
         }
 
+        // Transfer NFT to this contract for escrow
+        ticket.safeTransferFrom(msg.sender, address(this), ticketId);
+
         listings[ticketId] = Listing({
             seller: msg.sender,
             price: price,
@@ -112,6 +126,10 @@ contract ResaleMarket is ReentrancyGuard, Ownable {
         Listing memory listing = listings[ticketId];
         require(listing.active, "Listing not active");
         require(listing.seller == msg.sender, "Not the seller");
+
+        // Transfer NFT back to seller
+        ticket.safeTransferFrom(address(this), msg.sender, ticketId);
+
         delete listings[ticketId];
         emit Delisted(ticketId, msg.sender);
     }
@@ -124,8 +142,8 @@ contract ResaleMarket is ReentrancyGuard, Ownable {
         require(msg.value == listing.price, "Incorrect price");
         require(listing.seller != msg.sender, "Cannot buy your own ticket");
         require(
-            ticket.ownerOf(ticketId) == listing.seller,
-            "Seller no longer owns ticket"
+            ticket.ownerOf(ticketId) == address(this),
+            "Contract does not own ticket"
         );
         require(!ticket.isUsed(ticketId), "Ticket already used");
         require(manager.eventIsActive(listing.eventId), "Event not active");
@@ -153,8 +171,8 @@ contract ResaleMarket is ReentrancyGuard, Ownable {
 
         payable(listing.seller).sendValue(msg.value - royalty);
 
-        // final interaction – NFT transfer to buyer (requires prior approval)
-        ticket.safeTransferFrom(listing.seller, msg.sender, ticketId);
+        // final interaction – NFT transfer to buyer from escrow
+        ticket.safeTransferFrom(address(this), msg.sender, ticketId);
 
         emit Purchased(
             ticketId,
