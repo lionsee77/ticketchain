@@ -294,3 +294,20 @@ async def assign_roles_to_user(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Error assigning roles: {str(e)}",
         )
+
+
+async def require_authenticated_user(
+    credentials: HTTPAuthorizationCredentials = Depends(security),
+    db: Session = Depends(get_db),
+) -> dict:
+    """Get authenticated user info with wallet details for market endpoints"""
+    user = await get_current_user(credentials, db)
+    
+    return {
+        "user_id": user.id,
+        "username": user.username,
+        "account_index": user.account_index,
+        "wallet_address": user.wallet_address,
+        "private_key": user.private_key,
+        "roles": [role.name for role in user.roles]
+    }

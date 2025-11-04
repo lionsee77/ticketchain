@@ -18,24 +18,24 @@ class CreateEventRequest(BaseModel):
 class BuyTicketsRequest(BaseModel):
     event_id: int
     quantity: int
-    user_account: int  # Hardhat test account index (0-19)
+    # user_account removed - get from JWT!
 
 
 # --- Market Models ---
 class ListRequest(BaseModel):
     ticket_id: int
     price: int  # wei
-    seller_account: int  # Hardhat test account index (0-19)
+    # seller_account removed - get from JWT!
 
 
 class DelistRequest(BaseModel):
     ticket_id: int
-    seller_account: int  # Hardhat test account index (0-19)
+    # seller_account removed - get from JWT!
 
 
 class BuyListingRequest(BaseModel):
     ticket_id: int
-    buyer_account: int  # Hardhat test account index (0-19)
+    # buyer_account removed - get from JWT!
 
 class ListingResponse(BaseModel):
     ticket_id: int
@@ -51,7 +51,7 @@ class MarketListingsResponse(BaseModel):
 
 # --- Approval Models ---
 class ApprovalRequest(BaseModel):
-    user_account: int  # Hardhat test account index (0-19)
+    pass  # user_account removed - get from JWT!
 
 
 class ApprovalStatusRequest(BaseModel):

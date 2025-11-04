@@ -1,10 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from models import CreateEventRequest, BuyTicketsRequest
 from web3_manager import web3_manager
-from dependencies.role_deps import (
-    require_authenticated_user,
-    require_roles,
-)
+from dependencies.role_deps import require_roles
+from routes.auth_route import require_authenticated_user
 
 # Initialize router
 router = APIRouter(prefix="/events", tags=["events"])
@@ -226,7 +224,8 @@ async def buy_tickets(
                 status_code=400, detail="Quantity must be greater than 0"
             )
 
-        if request.user_account not in range(10):  # 0-9
+        user_account = user_info["account_index"]
+        if user_account not in range(10):  # 0-9
             raise HTTPException(status_code=400, detail="User account must be 0-9")
 
         # Get event details to calculate total price
@@ -260,8 +259,8 @@ async def buy_tickets(
         total_price = ticket_price * request.quantity
 
         # Get user account for this purchase
-        user_account = web3_manager.get_user_account(request.user_account)
-        user_address = user_account.address
+        user_account_obj = web3_manager.get_user_account(user_account)
+        user_address = user_account_obj.address
 
         # Check user has enough ETH
         user_balance = web3_manager.get_account_balance(user_address)
@@ -278,11 +277,11 @@ async def buy_tickets(
 
         # Build and send the transaction from user account
         txn = web3_manager.build_user_transaction(
-            function_call, user_account, gas=500000
+            function_call, user_account_obj, gas=500000
         )
         txn["value"] = total_price
 
-        tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account)
+        tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account_obj)
 
         # Award loyalty points after successful ticket purchase
         loyalty_points_awarded = 0
@@ -300,9 +299,9 @@ async def buy_tickets(
             "total_price_wei": total_price,
             "total_price_eth": web3_manager.w3.from_wei(total_price, "ether"),
             "buyer_address": user_address,
-            "user_account_index": request.user_account,
+            "user_account_index": user_account,
             "loyalty_points_awarded": loyalty_points_awarded,
-            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User account {request.user_account} paid and received NFTs. Awarded {loyalty_points_awarded} loyalty points.",
+            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User account {user_account} paid and received NFTs. Awarded {loyalty_points_awarded} loyalty points.",
         }
 
     except HTTPException:

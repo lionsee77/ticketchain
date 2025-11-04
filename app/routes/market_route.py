@@ -11,7 +11,7 @@ from models import (
 from web3_manager import web3_manager
 from web3 import Web3
 from typing import Optional
-from dependencies.role_deps import require_authenticated_user
+from routes.auth_route import require_authenticated_user
 
 # Initialize router
 router = APIRouter(prefix="/market", tags=["market"])
@@ -31,9 +31,10 @@ def _ensure_contracts():
 
 
 @router.get("/approval/status", summary="Check if user has approved ResaleMarket")
-def check_approval_status(user_account: int, user_info: dict = Depends(require_authenticated_user)):
+def check_approval_status(user_info: dict = Depends(require_authenticated_user)):
     """Check if a user has approved the ResaleMarket to transfer their tickets"""
     try:
+        user_account = user_info["account_index"]
         is_approved = web3_manager.check_resale_market_approval(user_account)
         user_address = web3_manager.get_user_address(user_account)
 
@@ -66,25 +67,26 @@ def approve_resale_market(
     This is required before users can list tickets for resale.
     """
     try:
+        user_account = user_info["account_index"]
         # Check if already approved
         is_already_approved = web3_manager.check_resale_market_approval(
-            req.user_account
+            user_account
         )
         if is_already_approved:
             return {
                 "success": True,
                 "already_approved": True,
-                "user_account": req.user_account,
+                "user_account": user_account,
                 "message": "ResaleMarket is already approved to transfer your tickets",
             }
 
         # Approve ResaleMarket
-        tx_hash = web3_manager.approve_resale_market(req.user_account)
+        tx_hash = web3_manager.approve_resale_market(user_account)
 
         return {
             "success": True,
             "tx_hash": tx_hash.hex(),
-            "user_account": req.user_account,
+            "user_account": user_account,
             "message": "Successfully approved ResaleMarket to transfer your tickets",
         }
     except Exception as e:
@@ -103,23 +105,24 @@ def revoke_resale_market_approval(
     Note: This will prevent listing new tickets, but won't affect existing listings.
     """
     try:
+        user_account = user_info["account_index"]
         # Check if approved
-        is_approved = web3_manager.check_resale_market_approval(req.user_account)
+        is_approved = web3_manager.check_resale_market_approval(user_account)
         if not is_approved:
             return {
                 "success": True,
                 "already_revoked": True,
-                "user_account": req.user_account,
+                "user_account": user_account,
                 "message": "ResaleMarket approval was already revoked",
             }
 
         # Revoke approval
-        tx_hash = web3_manager.revoke_resale_market_approval(req.user_account)
+        tx_hash = web3_manager.revoke_resale_market_approval(user_account)
 
         return {
             "success": True,
             "tx_hash": tx_hash.hex(),
-            "user_account": req.user_account,
+            "user_account": user_account,
             "message": "Successfully revoked ResaleMarket approval",
         }
     except Exception as e:
@@ -129,8 +132,6 @@ def revoke_resale_market_approval(
 
 
 # --- LISTING ENDPOINTS ---
-
-
 @router.post("/list", summary="List a ticket for resale")
 def list_ticket(req: ListRequest, user_info: dict = Depends(require_authenticated_user)):
     """
@@ -140,18 +141,19 @@ def list_ticket(req: ListRequest, user_info: dict = Depends(require_authenticate
     resale, mgr = _ensure_contracts()
     ticket_id = req.ticket_id
     price = int(req.price)
+    seller_account = user_info["account_index"]
 
     try:
-        seller_acct = web3_manager.get_user_account(req.seller_account)
+        seller_acct = web3_manager.get_user_account(seller_account)
         seller_addr = Web3.to_checksum_address(
-            web3_manager.get_user_address(req.seller_account)
+            web3_manager.get_user_address(seller_account)
         )
     except Exception:
         raise HTTPException(status_code=400, detail="invalid seller_account index")
 
     # Check if user has approved ResaleMarket
     try:
-        is_approved = web3_manager.check_resale_market_approval(req.seller_account)
+        is_approved = web3_manager.check_resale_market_approval(seller_account)
         if not is_approved:
             raise HTTPException(
                 status_code=400,
@@ -185,10 +187,11 @@ def list_ticket(req: ListRequest, user_info: dict = Depends(require_authenticate
 def delist_ticket(req: DelistRequest, user_info: dict = Depends(require_authenticated_user)):
     resale, mgr = _ensure_contracts()
     ticket_id = req.ticket_id
+    seller_account = user_info["account_index"]
 
     try:
-        seller_acct = web3_manager.get_user_account(req.seller_account)
-        seller_addr = web3_manager.get_user_address(req.seller_account)
+        seller_acct = web3_manager.get_user_account(seller_account)
+        seller_addr = web3_manager.get_user_address(seller_account)
     except Exception:
         raise HTTPException(status_code=400, detail="invalid seller_account index")
 
@@ -232,10 +235,11 @@ def delist_ticket(req: DelistRequest, user_info: dict = Depends(require_authenti
 @router.post("/buy", summary="Buy a listed ticket")
 def buy_listing(req: BuyListingRequest, user_info: dict = Depends(require_authenticated_user)):
     resale, mgr = _ensure_contracts()
+    buyer_account = user_info["account_index"]
 
     try:
-        buyer_acct = web3_manager.get_user_account(req.buyer_account)
-        buyer_addr = web3_manager.get_user_address(req.buyer_account)
+        buyer_acct = web3_manager.get_user_account(buyer_account)
+        buyer_addr = web3_manager.get_user_address(buyer_account)
     except Exception:
         raise HTTPException(status_code=400, detail="invalid buyer_account index")
 
@@ -355,13 +359,13 @@ async def get_active_listings(user_info: dict = Depends(require_authenticated_us
 
 @router.get("/my-listings", response_model=MarketListingsResponse)
 async def get_my_listings(
-    user_account: int,
     user_info: dict = Depends(require_authenticated_user)
 ):
     """Get all listings by the authenticated user"""
     resale, mgr = _ensure_contracts()
     
     try:
+        user_account = user_info["account_index"]
         user_address = web3_manager.get_user_address(user_account)
         # Get total events 
         total_events = mgr.functions.eventCounter().call()  # Use eventCounter instead

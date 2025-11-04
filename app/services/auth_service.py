@@ -164,6 +164,8 @@ class AuthService:
             "username": user.username,
             "roles": user_roles,
             "session_id": session_id,
+            "account_index": user.account_index,
+            "wallet_address": user.wallet_address,
         }
         access_token = self.create_access_token(token_data)
         refresh_token = self.create_refresh_token(token_data)
@@ -262,6 +264,8 @@ class AuthService:
             "username": user.username,
             "roles": user_roles,
             "session_id": session_id,
+            "account_index": user.account_index,
+            "wallet_address": user.wallet_address,
         }
         access_token = self.create_access_token(token_data)
 
