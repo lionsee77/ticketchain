@@ -86,6 +86,8 @@ class AuthMiddleware(BaseHTTPMiddleware):
         request.state.username = payload.get("username")
         request.state.session_id = payload.get("session_id")
         request.state.user_roles = payload.get("roles", [])
+        request.state.account_index = payload.get("account_index")
+        request.state.wallet_address = payload.get("wallet_address")
         request.state.is_authenticated = True
 
         return await call_next(request)

@@ -16,6 +16,8 @@ def get_authenticated_user(request: Request):
         "username": getattr(request.state, "username"),
         "session_id": getattr(request.state, "session_id"),
         "roles": getattr(request.state, "user_roles", []),
+        "account_index": getattr(request.state, "account_index"),
+        "wallet_address": getattr(request.state, "wallet_address"),
     }
 
 

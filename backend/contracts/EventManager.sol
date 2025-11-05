@@ -3,6 +3,12 @@ pragma solidity ^0.8.28;
 
 interface ITicketNFT {
     function mint(address to, uint256 eventId) external returns (uint256);
+    function markAsUsed(uint256 ticketId) external;
+    function isUsed(uint256 ticketId) external view returns (bool);
+    function ticketToEvent(uint256 ticketId) external view returns (uint256);
+    function ownerOf(uint256 tokenId) external view returns (address);
+    function balanceOf(address owner) external view returns (uint256);
+    function tokenOfOwnerByIndex(address owner, uint256 index) external view returns (uint256);
 }
 
 contract EventManager {
@@ -144,6 +150,13 @@ contract EventManager {
 
     function eventIsActive(uint256 eventId) external view returns (bool) {
         return events[eventId].isActive;
+    }
+
+    // Mark ticket as used (only oracle can do this)
+    function markTicketAsUsed(uint256 ticketId) external oracleOnly {
+        require(ticketNFTAddress != address(0), "TicketNFT contract not set");
+        ITicketNFT ticketNFT = ITicketNFT(ticketNFTAddress);
+        ticketNFT.markAsUsed(ticketId);
     }
 
     function setOracle(address _oracle) public {
