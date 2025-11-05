@@ -64,36 +64,34 @@ export function RegistrationForm() {
     try {
       setIsLoading(true)
       setError(null)
-      
+
       // Find the wallet address index in the available accounts
       const accountIndex = AVAILABLE_HARDHAT_ACCOUNTS.indexOf(values.walletAddress)
       if (accountIndex === -1) {
         throw new Error("Invalid wallet address selected")
       }
-      
-      // Get the corresponding private key (add 2 because we start from account 2)
-      const actualAccountIndex = accountIndex + 2
+
+      // Get the corresponding private key
       const privateKey = AVAILABLE_HARDHAT_PRIVATE_KEYS[accountIndex]
-      
+
       // Register the user
       await apiClient.register({
         username: values.username,
         email: values.email,
         password: values.password,
         wallet_address: values.walletAddress,
-        account_index: actualAccountIndex,
         private_key: privateKey,
       })
-      
+
       // Auto-login after successful registration
       const loginResponse = await apiClient.login({
         username: values.username,
         password: values.password,
       })
-      
+
       // Use the auth hook to handle login
       login(loginResponse.access_token, { username: values.username })
-      
+
       // Redirect to events page
       router.push("/events")
     } catch (err) {
@@ -114,18 +112,18 @@ export function RegistrationForm() {
             <FormItem>
               <FormLabel>Username</FormLabel>
               <FormControl>
-                <Input 
-                  placeholder="Choose a username" 
+                <Input
+                  placeholder="Choose a username"
                   className="h-11"
                   disabled={isLoading}
-                  {...field} 
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="email"
@@ -133,19 +131,19 @@ export function RegistrationForm() {
             <FormItem>
               <FormLabel>Email</FormLabel>
               <FormControl>
-                <Input 
-                  type="email" 
-                  placeholder="Enter your email" 
+                <Input
+                  type="email"
+                  placeholder="Enter your email"
                   className="h-11"
                   disabled={isLoading}
-                  {...field} 
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="password"
@@ -153,19 +151,19 @@ export function RegistrationForm() {
             <FormItem>
               <FormLabel>Password</FormLabel>
               <FormControl>
-                <Input 
-                  type="password" 
-                  placeholder="Create a secure password" 
+                <Input
+                  type="password"
+                  placeholder="Create a secure password"
                   className="h-11"
                   disabled={isLoading}
-                  {...field} 
+                  {...field}
                 />
               </FormControl>
               <FormMessage />
             </FormItem>
           )}
         />
-        
+
         <FormField
           control={form.control}
           name="walletAddress"
@@ -198,16 +196,16 @@ export function RegistrationForm() {
             </FormItem>
           )}
         />
-        
+
         {error && (
           <Alert className="border-red-200 bg-red-50 text-red-800">
             <AlertDescription>{error}</AlertDescription>
           </Alert>
         )}
-        
-        <Button 
-          type="submit" 
-          className="w-full h-11 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700" 
+
+        <Button
+          type="submit"
+          className="w-full h-11 bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
           disabled={isLoading}
         >
           {isLoading ? "Creating Account..." : "Create Account"}

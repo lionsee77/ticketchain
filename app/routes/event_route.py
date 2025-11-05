@@ -1,10 +1,8 @@
 from fastapi import APIRouter, HTTPException, Depends
 from models import CreateEventRequest, BuyTicketsRequest
 from web3_manager import web3_manager
-from dependencies.role_deps import (
-    require_authenticated_user,
-    require_roles,
-)
+from dependencies.role_deps import require_roles
+from routes.auth_route import require_authenticated_user
 
 # Initialize router
 router = APIRouter(prefix="/events", tags=["events"])
@@ -46,7 +44,7 @@ async def create_event(
                 status_code=400, detail="Total tickets must be greater than 0"
             )
 
-        # Build transaction using web3_manager
+        # Build transaction using web3_manager oracle account (only oracle can create events)
         function_call = web3_manager.event_manager.functions.createEvent(
             request.name,
             request.venue,
@@ -66,6 +64,7 @@ async def create_event(
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to create event: {str(e)}")
+
 
 @router.get("/all", summary="List all events")
 async def fetch_all_events():
@@ -226,8 +225,8 @@ async def buy_tickets(
                 status_code=400, detail="Quantity must be greater than 0"
             )
 
-        if request.user_account not in range(10):  # 0-9
-            raise HTTPException(status_code=400, detail="User account must be 0-9")
+        user_wallet_address = user_info["wallet_address"]
+        user_private_key = user_info["private_key"]
 
         # Get event details to calculate total price
         try:
@@ -260,8 +259,10 @@ async def buy_tickets(
         total_price = ticket_price * request.quantity
 
         # Get user account for this purchase
-        user_account = web3_manager.get_user_account(request.user_account)
-        user_address = user_account.address
+        user_account_obj = web3_manager.get_user_account(
+            user_wallet_address, user_private_key
+        )
+        user_address = user_account_obj.address
 
         # Check user has enough ETH
         user_balance = web3_manager.get_account_balance(user_address)
@@ -278,16 +279,18 @@ async def buy_tickets(
 
         # Build and send the transaction from user account
         txn = web3_manager.build_user_transaction(
-            function_call, user_account, gas=500000
+            function_call, user_account_obj, gas=500000
         )
         txn["value"] = total_price
 
-        tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account)
+        tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account_obj)
 
         # Award loyalty points after successful ticket purchase
         loyalty_points_awarded = 0
         try:
-            loyalty_points_awarded = web3_manager.award_loyalty_points(user_address, total_price)
+            loyalty_points_awarded = web3_manager.award_loyalty_points(
+                user_address, total_price
+            )
         except Exception as e:
             # Log the error but don't fail the ticket purchase
             print(f"Warning: Failed to award loyalty points: {str(e)}")
@@ -300,9 +303,8 @@ async def buy_tickets(
             "total_price_wei": total_price,
             "total_price_eth": web3_manager.w3.from_wei(total_price, "ether"),
             "buyer_address": user_address,
-            "user_account_index": request.user_account,
             "loyalty_points_awarded": loyalty_points_awarded,
-            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User account {request.user_account} paid and received NFTs. Awarded {loyalty_points_awarded} loyalty points.",
+            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User {user_address} paid and received NFTs. Awarded {loyalty_points_awarded} loyalty points.",
         }
 
     except HTTPException:

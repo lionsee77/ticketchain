@@ -9,6 +9,7 @@ from routes.market_route import router as market_router
 from routes.account_route import router as account_router
 from routes.loyalty_route import router as loyalty_router
 from routes.auth_route import router as auth_router
+from routes.ticket_route import router as ticket_router
 from middleware.auth import AuthMiddleware
 from database.db import engine, Base
 
@@ -55,6 +56,7 @@ app.add_middleware(
     protected_paths={
         "/events",
         "/market",
+        "/tickets",
         "/auth/profile",
         "/auth/me",
         "/auth/logout",
@@ -68,6 +70,7 @@ app.include_router(event_router)
 app.include_router(market_router)
 app.include_router(account_router)
 app.include_router(loyalty_router)
+app.include_router(ticket_router)
 
 
 @app.get("/")

@@ -23,7 +23,6 @@ export interface RegisterRequest {
   email: string;
   password: string;
   wallet_address: string;
-  account_index: number;
   private_key: string;
 }
 
@@ -88,7 +87,6 @@ export interface UserProfile {
   is_verified: boolean;
   created_at: string;
   roles: string[];
-  account_index: number;
   wallet_address: string;
   private_key: string;
 }

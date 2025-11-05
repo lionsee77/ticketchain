@@ -18,24 +18,25 @@ class CreateEventRequest(BaseModel):
 class BuyTicketsRequest(BaseModel):
     event_id: int
     quantity: int
-    user_account: int  # Hardhat test account index (0-19)
+    # user_account removed - get from JWT!
 
 
 # --- Market Models ---
 class ListRequest(BaseModel):
     ticket_id: int
     price: int  # wei
-    seller_account: int  # Hardhat test account index (0-19)
+    # seller_account removed - get from JWT!
 
 
 class DelistRequest(BaseModel):
     ticket_id: int
-    seller_account: int  # Hardhat test account index (0-19)
+    # seller_account removed - get from JWT!
 
 
 class BuyListingRequest(BaseModel):
     ticket_id: int
-    buyer_account: int  # Hardhat test account index (0-19)
+    # buyer_account removed - get from JWT!
+
 
 class ListingResponse(BaseModel):
     ticket_id: int
@@ -44,18 +45,20 @@ class ListingResponse(BaseModel):
     event_id: int
     is_active: bool
 
+
 class MarketListingsResponse(BaseModel):
     listings: list[ListingResponse]
     total: int
     message: str
 
+
 # --- Approval Models ---
 class ApprovalRequest(BaseModel):
-    user_account: int  # Hardhat test account index (0-19)
+    pass  # user_account removed - get from JWT!
 
 
 class ApprovalStatusRequest(BaseModel):
-    user_account: int  # Hardhat test account index (0-19)
+    pass  # removed user_account - get from JWT!
 
 
 # --- Auth Models ---
@@ -64,7 +67,6 @@ class UserRegister(BaseModel):
     email: EmailStr
     password: str
     full_name: Optional[str] = None
-    account_index: int
     wallet_address: str
     private_key: str
 
@@ -95,9 +97,8 @@ class UserProfile(BaseModel):
     is_verified: bool
     created_at: datetime
     roles: list[str]
-    account_index: int
     wallet_address: str
-    private_key: str  
+    private_key: str
 
 
 class MessageResponse(BaseModel):

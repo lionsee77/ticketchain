@@ -3,6 +3,9 @@
 from typing import List
 from fastapi import Depends, HTTPException, status, Request
 
+from database.db import get_db
+from database.db_models import User
+
 
 def get_authenticated_user(request: Request):
     """Get authenticated user info from middleware state"""
@@ -16,6 +19,7 @@ def get_authenticated_user(request: Request):
         "username": getattr(request.state, "username"),
         "session_id": getattr(request.state, "session_id"),
         "roles": getattr(request.state, "user_roles", []),
+        "wallet_address": getattr(request.state, "wallet_address"),
     }
 
 
@@ -48,3 +52,34 @@ require_user = require_roles(["user", "admin"])
 def require_authenticated_user(user_info: dict = Depends(get_authenticated_user)):
     """Dependency for any authenticated user (no specific role required)"""
     return user_info
+
+
+def get_user_private_key(user_id: int) -> str:
+    """
+    Securely retrieve user's private key from database only when needed.
+    This should only be used for blockchain operations that require signing.
+    """
+    db = next(get_db())
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND, detail="User not found"
+            )
+        # Explicitly cast to str to satisfy type checker
+        return str(user.private_key)
+    finally:
+        db.close()
+
+
+def get_user_wallet_credentials(user_info: dict) -> tuple[str, str]:
+    """
+    Get wallet address and private key for blockchain operations.
+    Only call this when you actually need to sign transactions.
+
+    Returns:
+        tuple: (wallet_address, private_key)
+    """
+    wallet_address: str = user_info["wallet_address"]
+    private_key: str = get_user_private_key(user_info["user_id"])
+    return wallet_address, private_key

@@ -16,7 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import { listTicket, approveMarketplace, type CreateListingRequest } from '@/lib/api/market'
-import { getUserProfile, type UserProfile } from '@/lib/api/client'
+import { getUserProfile } from '@/lib/api/client'
 
 interface SellTicketsDialogProps {
   open: boolean
@@ -43,9 +43,10 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
         setError('Please log in to sell tickets')
         return
       }
-      
-      getUserProfile().then((profile: UserProfile) => {
-        setUserAccount(profile.account_index)
+
+      getUserProfile().then(() => {
+        // Use wallet address instead of account_index
+        setUserAccount(0) // Set a default since we no longer need account index
         setError(null)
       }).catch((err) => {
         console.error('Failed to load user profile:', err)
@@ -56,7 +57,7 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    
+
     if (!userAccount) {
       setError('User account not loaded. Please try refreshing or logging in again.')
       return
@@ -69,12 +70,12 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
 
     const ticketId = parseInt(formData.ticket_id)
     const priceEth = parseFloat(formData.price_eth)
-    
+
     if (isNaN(ticketId) || ticketId < 0) {
       setError('Please enter a valid ticket ID')
       return
     }
-    
+
     if (isNaN(priceEth) || priceEth <= 0) {
       setError('Please enter a valid price')
       return
@@ -86,19 +87,19 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
     try {
       // Convert ETH to wei (1 ETH = 10^18 wei)
       const priceWei = Math.floor(priceEth * Math.pow(10, 18))
-      
+
       // First approve the marketplace to handle the ticket
       await approveMarketplace(userAccount)
-      
+
       // Then list the ticket
       const listRequest: CreateListingRequest = {
         ticket_id: ticketId,
         price: priceWei,
         seller_account: userAccount
       }
-      
+
       await listTicket(listRequest)
-      
+
       setSuccess(true)
       setTimeout(() => {
         setSuccess(false)
@@ -134,7 +135,7 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
             List your ticket on the marketplace for resale
           </DialogDescription>
         </DialogHeader>
-        
+
         {success ? (
           <div className="flex flex-col items-center justify-center py-8">
             <CheckCircle2 className="h-16 w-16 text-green-500 mb-4" />
@@ -157,7 +158,7 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
                   Loading your account information...
                 </div>
               )}
-              
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="ticket_id" className="text-right">
                   Ticket ID
@@ -174,7 +175,7 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
                   step="1"
                 />
               </div>
-              
+
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="price_eth" className="text-right">
                   Price (ETH)
@@ -192,14 +193,14 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
                 />
               </div>
             </div>
-            
+
             {error && (
               <Alert variant="destructive" className="mb-4">
                 <AlertCircle className="h-4 w-4" />
                 <AlertDescription>{error}</AlertDescription>
               </Alert>
             )}
-            
+
             <DialogFooter>
               <Button
                 type="button"
