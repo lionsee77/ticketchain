@@ -83,6 +83,8 @@ jobs:
           - event-mgr
           - loyalty-system
           - resale-market
+          - marketplace-system
+          - ticket-system
       fail-fast: false
 
     steps:
@@ -501,6 +503,24 @@ jobs:
             echo "⚠️  Second ticket listing failed, skipping delist test"
             echo "This might be normal if only 2 tickets were available"
           fi
+
+      - name: Run Marketplace System Tests
+        if: matrix.test-suite == 'marketplace-system'
+        run: |
+          echo "=== Testing Marketplace System ==="
+          
+          # Make test script executable and run it
+          chmod +x ./test_marketplace.sh
+          ./test_marketplace.sh
+
+      - name: Run Ticket Management System Tests  
+        if: matrix.test-suite == 'ticket-system'
+        run: |
+          echo "=== Testing Ticket Management System ==="
+          
+          # Make test script executable and run it
+          chmod +x ./test_ticket.sh
+          ./test_ticket.sh
 
       - name: Check container logs on failure
         if: failure()
