@@ -37,7 +37,6 @@ contract TicketSwap is ReentrancyGuard, Ownable {
 
     mapping(uint256 => Offer) public offers; // offerId => Offer
     uint256 public offerCounter;
-    uint256 public platformFee; // The flat fee (in wei) to execute a swap
 
     event OfferCreated(
         uint256 indexed offerId,
@@ -59,23 +58,10 @@ contract TicketSwap is ReentrancyGuard, Ownable {
     constructor(
         address _ticket, // address of the TicketNFT contract
         address _manager, // address of the EventManager contract
-        uint256 _platformFee, // the initial platform fee in wei
         address _initialOwner // the owner of the contract (for managing fees)
     ) Ownable(_initialOwner) {
         ticket = ITicketNFT(_ticket);
         manager = IEventManager(_manager);
-        platformFee = _platformFee;
-    }
-
-    function setPlatformFee(uint256 _newFee) external onlyOwner {
-        //allows the updating of platform fees
-        platformFee = _newFee; 
-    }
-
-    function withdrawFees() external onlyOwner {
-        //allows the contract owner to withdraw collected fees
-        (bool success, ) = owner().call{value: address(this).balance}("");
-        require(success, "Fee withdrawal failed");
     }
 
     function createOffer(
@@ -128,12 +114,9 @@ contract TicketSwap is ReentrancyGuard, Ownable {
         emit OfferCancelled(_offerId, msg.sender);
     }
 
-    function acceptOffer(uint256 _offerId) external payable nonReentrant {
+    function acceptOffer(uint256 _offerId) external nonReentrant {
         // Accepts an active swap offer. 
         // (Conditional on the owner of the desiredTicketId having approved this contract to transfer their ticket)
-        // Caller must also send the platform fee in ETH.
-
-        require(msg.value == platformFee, "Incorrect platform fee sent");
 
         Offer storage offer = offers[_offerId];
         require(offer.active, "Offer not active");
