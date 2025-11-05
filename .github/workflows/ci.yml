@@ -231,9 +231,28 @@ jobs:
 
           # Test role-based access control - user with organiser role should succeed
           echo "Testing organiser can create events..."
+          
+          # Login again to get updated token with new roles
+          echo "Re-authenticating user to get token with updated roles..."
+          USER_REAUTH_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "testuser",
+              "password": "password123"
+            }')
+
+          USER_NEW_TOKEN=$(echo "$USER_REAUTH_RESPONSE" | jq -r '.access_token // empty')
+
+          if [ -n "$USER_NEW_TOKEN" ] && [ "$USER_NEW_TOKEN" != "null" ]; then
+            echo "✅ User re-authentication successful"
+          else
+            echo "❌ User re-authentication failed"
+            exit 1
+          fi
+
           CREATE_SUCCESS_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/create" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $USER_TOKEN" \
+            -H "Authorization: Bearer $USER_NEW_TOKEN" \
             -d '{
               "name": "Organiser Event",
               "venue": "Test Venue",
@@ -242,10 +261,13 @@ jobs:
               "total_tickets": 10
             }')
 
+          echo "Create event response: $CREATE_SUCCESS_RESPONSE"
+
           if echo "$CREATE_SUCCESS_RESPONSE" | grep -q '"success":true'; then
             echo "✅ Organiser can create events"
           else
             echo "❌ Organiser cannot create events"
+            echo "Response details: $CREATE_SUCCESS_RESPONSE"
             exit 1
           fi
 
