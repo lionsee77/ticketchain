@@ -27,7 +27,6 @@ REGISTER_RESPONSE=$(curl -s -X POST http://localhost:8000/auth/register \
   "username": "organiser",
   "email": "organiser@test.com",
   "password": "password123",
-  "account_index": 1,
   "wallet_address": "0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
   "private_key": "0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
 }')
@@ -57,16 +56,20 @@ EVENT_RESPONSE=$(curl -s -X POST http://localhost:8000/events/create \
 -H "Content-Type: application/json" \
 -d '{
   "name": "Test Concert 2026",
-  "symbol": "TC2026",
   "venue": "Test Arena",
   "date": 1792540800,
-  "price": 1,
-  "total_tickets": 100,
-  "ticket_price": 1,
-  "max_supply": 100,
-  "max_resale_price": 2
+  "price": 1000000000000000,
+  "total_tickets": 100
 }')
-echo $EVENT_RESPONSE | jq
+echo "Event creation response:"
+echo $EVENT_RESPONSE
+echo "Parsed event response:"
+echo $EVENT_RESPONSE | jq . 2>/dev/null || echo "Failed to parse JSON: $EVENT_RESPONSE"
+
+echo -e "\n${GREEN}5.5. Check event details${NC}"
+EVENTS_RESPONSE=$(curl -s -X GET http://localhost:8000/events/all)
+echo "All events:"
+echo $EVENTS_RESPONSE | jq
 
 echo -e "\n${GREEN}6. Register/Login testuser${NC}"
 # Try to register first (in case doesn't exist)
@@ -76,7 +79,6 @@ curl -s -X POST http://localhost:8000/auth/register \
   "username": "testuser",
   "email": "testuser@test.com",
   "password": "test123",
-  "account_index": 2,
   "wallet_address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
   "private_key": "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"
 }' > /dev/null 2>&1
@@ -151,7 +153,6 @@ REGISTER_USER2_RESPONSE=$(curl -s -X POST http://localhost:8000/auth/register \
   "username": "testuser2",
   "email": "testuser2@test.com",
   "password": "test123",
-  "account_index": 3,
   "wallet_address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
   "private_key": "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
 }')

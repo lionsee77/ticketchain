@@ -93,9 +93,8 @@ def create_initial_admin():
             password="password123",
             full_name="System Administrator",
             roles=["admin", "user"],
-            account_index=0,
             wallet_address="0xf39Fd6e51aad88F6F4ce6aB8827279cffFb92266",
-            private_key="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80"
+            private_key="0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
         )
 
         print("✅ Initial admin user created successfully!")
@@ -105,8 +104,7 @@ def create_initial_admin():
         print(f"   Roles: {[role.name for role in admin_user.roles]}")
         print(f"   Wallet Address: {admin_user.wallet_address}")
         print(f"   Wallet Priv Key: {admin_user.private_key}")
-        print(f"   Hardhat account Index: {admin_user.account_index}")
-        
+
         print("⚠️  IMPORTANT: Change the default password in production!")
 
     except Exception as e:
@@ -114,6 +112,7 @@ def create_initial_admin():
         db.rollback()
     finally:
         db.close()
+
 
 def create_initial_organiser():
     """Create initial organiser user if no organiser users exist"""
@@ -132,7 +131,9 @@ def create_initial_organiser():
             db.query(User).join(User.roles).filter(Role.name == "organiser").count()
         )
         if existing_organisers > 0:
-            print(f"Organiser users already exist ({existing_organisers} found), skipping...")
+            print(
+                f"Organiser users already exist ({existing_organisers} found), skipping..."
+            )
             return
 
         # Create initial organiser user
@@ -145,9 +146,8 @@ def create_initial_organiser():
             password="password123",
             full_name="Event Organiser",
             roles=["organiser", "user"],
-            account_index=1,
             wallet_address="0x70997970C51812dc3A010C7d01b50e0d17dc79C8",
-            private_key="0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d"
+            private_key="0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d",
         )
 
         print("✅ Initial organiser user created successfully!")
@@ -157,8 +157,7 @@ def create_initial_organiser():
         print(f"   Roles: {[role.name for role in organiser_user.roles]}")
         print(f"   Wallet Address: {organiser_user.wallet_address}")
         print(f"   Wallet Priv Key: {organiser_user.private_key}")
-        print(f"   Hardhat account Index: {organiser_user.account_index}")
-        
+
         print("⚠️  IMPORTANT: Change the default password in production!")
 
     except Exception as e:

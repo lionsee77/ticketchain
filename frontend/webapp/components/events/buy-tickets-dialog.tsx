@@ -22,7 +22,7 @@ import {
   FormMessage,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { buyTickets, type BuyTicketsRequest, type Event } from "@/lib/api/events"
+import { buyTickets, type Event } from "@/lib/api/events"
 import { getUserProfile } from "@/lib/api/client"
 
 const formSchema = z.object({
@@ -56,8 +56,8 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
   React.useEffect(() => {
     if (open && userAccountIndex === null) {
       getUserProfile()
-        .then(profile => {
-          setUserAccountIndex(profile.account_index)
+        .then(() => {
+          setUserAccountIndex(0) // Set default since we no longer use account index
         })
         .catch(err => {
           console.error('Failed to get user profile:', err)
@@ -71,36 +71,36 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
       setIsLoading(true)
       setError(null)
       setSuccess(null)
-      
+
       if (userAccountIndex === null) {
         throw new Error('User account information not available')
       }
-      
+
       console.log("Buying tickets for event:", event.id)
       console.log("Form data:", values)
       console.log("Using user account index:", userAccountIndex)
-      
+
       const result = await buyTickets({
         event_id: Number(event.id),
         quantity: Number(values.quantity),
         user_account: userAccountIndex,
       })
-      
+
       const shortTxHash = result.tx_hash.substring(0, 8) + '...'
       setSuccess(`${values.quantity} ticket${Number(values.quantity) > 1 ? 's' : ''} purchased! Tx: ${shortTxHash}`)
       form.reset()
-      
+
       // Call the callback to refresh data
       if (onTicketsPurchased) {
         await onTicketsPurchased()
       }
-      
+
       // Auto-close dialog after 3 seconds on success
       setTimeout(() => {
         setOpen(false)
         setSuccess(null)
       }, 3000)
-      
+
     } catch (err) {
       console.error("Buy tickets error:", err)
       setError(err instanceof Error ? err.message : "Failed to buy tickets")
@@ -116,8 +116,8 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button 
-          variant="outline" 
+        <Button
+          variant="outline"
           size="sm"
           className="group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-colors"
         >
@@ -131,14 +131,14 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
             Purchase tickets for {event.name}
           </DialogDescription>
         </DialogHeader>
-        
+
         {success && (
           <div className="p-3 bg-green-50 border border-green-200 text-green-800 rounded-md text-xs break-all overflow-hidden max-w-full">
             <div className="font-medium mb-1">✅ Purchase Successful!</div>
             <div className="opacity-80">{success}</div>
           </div>
         )}
-        
+
         {error && (
           <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-xs break-all overflow-hidden max-w-full">
             <div className="font-medium mb-1">❌ Error</div>
@@ -161,7 +161,7 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
                 )}
               </div>
             </div>
-            
+
             <FormField
               control={form.control}
               name="quantity"
@@ -169,34 +169,34 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
                 <FormItem>
                   <FormLabel>Number of Tickets</FormLabel>
                   <FormControl>
-                    <Input 
-                      type="number" 
-                      min="1" 
+                    <Input
+                      type="number"
+                      min="1"
                       max={event.available_tickets}
-                      placeholder="1" 
-                      {...field} 
+                      placeholder="1"
+                      {...field}
                     />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
               )}
             />
-            
+
             <div className="p-3 bg-gray-50 rounded-md">
               <p className="font-medium">Total: {totalPrice} ETH</p>
               <p className="text-sm text-gray-600">
                 {quantity} ticket(s) × {event.ticket_price} ETH each
               </p>
             </div>
-            
-            <Button 
-              type="submit" 
+
+            <Button
+              type="submit"
               disabled={isLoading || userAccountIndex === null || Number(form.watch("quantity")) > event.available_tickets}
               className="w-full"
             >
-              {userAccountIndex === null ? "Loading account..." : 
-               isLoading ? "Processing..." : 
-               `Buy ${quantity} Ticket${quantity > 1 ? 's' : ''}`}
+              {userAccountIndex === null ? "Loading account..." :
+                isLoading ? "Processing..." :
+                  `Buy ${quantity} Ticket${quantity > 1 ? 's' : ''}`}
             </Button>
           </form>
         </Form>

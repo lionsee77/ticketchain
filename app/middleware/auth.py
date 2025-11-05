@@ -8,6 +8,10 @@ from starlette.responses import Response
 import json
 
 from services.auth_service import auth_service
+from database.db import get_db
+from database.db_models import User
+from database.db import get_db
+from database.db_models import User
 
 
 class AuthMiddleware(BaseHTTPMiddleware):
@@ -82,11 +86,11 @@ class AuthMiddleware(BaseHTTPMiddleware):
 
         # Add authenticated user info to request state
         # Authorization (role checking) will be handled by route dependencies
+        # Note: private_key is NOT stored here for security - retrieve only when needed
         request.state.user_id = int(user_id)
         request.state.username = payload.get("username")
         request.state.session_id = payload.get("session_id")
         request.state.user_roles = payload.get("roles", [])
-        request.state.account_index = payload.get("account_index")
         request.state.wallet_address = payload.get("wallet_address")
         request.state.is_authenticated = True
 

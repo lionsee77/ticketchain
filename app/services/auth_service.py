@@ -113,7 +113,6 @@ class AuthService:
         username: str,
         email: str,
         password: str,
-        account_index: int,
         wallet_address: str,
         private_key: str,
         full_name: Optional[str] = None,
@@ -130,7 +129,6 @@ class AuthService:
             full_name=full_name,
             wallet_address=wallet_address,
             private_key=private_key,
-            account_index=account_index,
             is_active=True,
             is_verified=False,
         )
@@ -164,7 +162,6 @@ class AuthService:
             "username": user.username,
             "roles": user_roles,
             "session_id": session_id,
-            "account_index": user.account_index,
             "wallet_address": user.wallet_address,
         }
         access_token = self.create_access_token(token_data)
@@ -264,7 +261,6 @@ class AuthService:
             "username": user.username,
             "roles": user_roles,
             "session_id": session_id,
-            "account_index": user.account_index,
             "wallet_address": user.wallet_address,
         }
         access_token = self.create_access_token(token_data)

@@ -69,10 +69,10 @@ class Web3Manager:
 
         if not config.LOYALTY_POINT_ADDRESS:
             raise ValueError("LOYALTY_POINT_ADDRESS is required")
-       
+
         if not config.LOYALTY_SYSTEM_ADDRESS:
             raise ValueError("LOYALTY_SYSTEM_ADDRESS is required")
-        
+
         if not config.TICKET_NFT_ADDRESS:
             raise ValueError("TICKET_NFT_ADDRESS is required")
 
@@ -163,16 +163,27 @@ class Web3Manager:
         tx_hash = self.w3.eth.send_raw_transaction(raw_tx)
         return tx_hash
 
-    def get_user_account(self, account_index: int):
-        """Get a user account by index (0-9) for testing"""
+    def get_user_account(self, wallet_address: str, private_key: str):
+        """Get a user account object from wallet credentials"""
+        account = self.w3.eth.account.from_key(private_key)
+        if account.address.lower() != wallet_address.lower():
+            raise ValueError("Private key does not match wallet address")
+        return account
+
+    def get_user_account_by_index(self, account_index: int):
+        """Get a user account by index (0-9) for testing - legacy method"""
         if account_index not in HARDHAT_ACCOUNTS:
             raise ValueError(f"Account index {account_index} not available. Use 0-9.")
 
         private_key = HARDHAT_ACCOUNTS[account_index]
         return self.w3.eth.account.from_key(private_key)
 
-    def get_user_address(self, account_index: int):
-        """Get user address by account index"""
+    def get_user_account_from_credentials(self, wallet_address: str, private_key: str):
+        """Get a user account object from wallet credentials (deprecated - use get_user_account)"""
+        return self.get_user_account(wallet_address, private_key)
+
+    def get_user_address_by_index(self, account_index: int):
+        """Get user address by account index (legacy method for testing)"""
         if account_index not in HARDHAT_ADDRESSES:
             raise ValueError(f"Account index {account_index} not available. Use 0-9.")
         return HARDHAT_ADDRESSES[account_index]
@@ -248,36 +259,39 @@ class Web3Manager:
         """Award loyalty points to a user based on wei amount spent."""
         if not hasattr(self, "loyalty_system"):
             raise RuntimeError("LoyaltySystem contract not initialised")
-        
+
         # Use the oracle account to award points (oracle is authorized to mint points)
-        oracle_account = self.get_user_account(0)  # Assuming oracle is account 0
-        
+        oracle_account = self.get_user_account_by_index(
+            0
+        )  # Assuming oracle is account 0
+
         function_call = self.loyalty_system.functions.awardPoints(
-            self.w3.to_checksum_address(to_address), 
-            int(wei_amount)
+            self.w3.to_checksum_address(to_address), int(wei_amount)
         )
-        
+
         # Build and send the transaction from oracle account
         txn = self.build_user_transaction(function_call, oracle_account, gas=200000)
         tx_hash = self.sign_and_send_user_transaction(txn, oracle_account)
-        
+
         # Get the transaction receipt to check if points were awarded
         receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
-        
+
         # Parse the PointsAwarded event to get the actual points minted
-        points_awarded_event = self.loyalty_system.events.PointsAwarded().process_receipt(receipt)
+        points_awarded_event = (
+            self.loyalty_system.events.PointsAwarded().process_receipt(receipt)
+        )
         if points_awarded_event:
-            return points_awarded_event[0]['args']['pointsMinted']
+            return points_awarded_event[0]["args"]["pointsMinted"]
         return 0
-    def check_resale_market_approval(self, user_account_index: int) -> bool:
+
+    def check_resale_market_approval(self, wallet_address: str) -> bool:
         """Check if user has approved ResaleMarket to transfer their tickets"""
         try:
-            user_address = self.get_user_address(user_account_index)
             resale_market_address = self.market_manager.address
 
             # Check if user has approved ResaleMarket for all their tickets
             is_approved = self.ticket_nft.functions.isApprovedForAll(
-                user_address, resale_market_address
+                wallet_address, resale_market_address
             ).call()
 
             return is_approved
@@ -285,10 +299,23 @@ class Web3Manager:
             print(f"Error checking approval: {str(e)}")
             return False
 
-    def approve_resale_market(self, user_account_index: int):
-        """Approve ResaleMarket to transfer user's tickets"""
+    def check_resale_market_approval_by_index(self, user_account_index: int) -> bool:
+        """Check if user has approved ResaleMarket to transfer their tickets by account index (legacy)"""
         try:
-            user_account = self.get_user_account(user_account_index)
+            user_address = self.get_user_address_by_index(user_account_index)
+            return self.check_resale_market_approval(user_address)
+        except Exception as e:
+            print(f"Error checking approval: {str(e)}")
+            return False
+
+    def check_resale_market_approval_by_address(self, wallet_address: str) -> bool:
+        """Check if user has approved ResaleMarket to transfer their tickets by wallet address (deprecated - use check_resale_market_approval)"""
+        return self.check_resale_market_approval(wallet_address)
+
+    def approve_resale_market(self, wallet_address: str, private_key: str):
+        """Approve ResaleMarket to transfer user's tickets using wallet credentials"""
+        try:
+            user_account = self.get_user_account(wallet_address, private_key)
             resale_market_address = self.market_manager.address
 
             # Build setApprovalForAll transaction
@@ -302,10 +329,50 @@ class Web3Manager:
         except Exception as e:
             raise Exception(f"Failed to approve ResaleMarket: {str(e)}")
 
-    def revoke_resale_market_approval(self, user_account_index: int):
+    def approve_resale_market_by_index(self, user_account_index: int):
+        """Approve ResaleMarket to transfer user's tickets by account index (legacy)"""
+        try:
+            user_account = self.get_user_account_by_index(user_account_index)
+            resale_market_address = self.market_manager.address
+
+            # Build setApprovalForAll transaction
+            fn = self.ticket_nft.functions.setApprovalForAll(
+                resale_market_address, True
+            )
+            txn = self.build_user_transaction(fn, user_account)
+            tx_hash = self.sign_and_send_user_transaction(txn, user_account)
+
+            return tx_hash
+        except Exception as e:
+            raise Exception(f"Failed to approve ResaleMarket: {str(e)}")
+
+    def approve_resale_market_by_credentials(
+        self, wallet_address: str, private_key: str
+    ):
+        """Approve ResaleMarket to transfer user's tickets using wallet credentials (deprecated - use approve_resale_market)"""
+        return self.approve_resale_market(wallet_address, private_key)
+
+    def revoke_resale_market_approval(self, wallet_address: str, private_key: str):
         """Revoke ResaleMarket approval to transfer user's tickets"""
         try:
-            user_account = self.get_user_account(user_account_index)
+            user_account = self.get_user_account(wallet_address, private_key)
+            resale_market_address = self.market_manager.address
+
+            # Build setApprovalForAll transaction with False
+            fn = self.ticket_nft.functions.setApprovalForAll(
+                resale_market_address, False
+            )
+            txn = self.build_user_transaction(fn, user_account)
+            tx_hash = self.sign_and_send_user_transaction(txn, user_account)
+
+            return tx_hash
+        except Exception as e:
+            raise Exception(f"Failed to revoke ResaleMarket approval: {str(e)}")
+
+    def revoke_resale_market_approval_by_index(self, user_account_index: int):
+        """Revoke ResaleMarket approval to transfer user's tickets by account index (legacy)"""
+        try:
+            user_account = self.get_user_account_by_index(user_account_index)
             resale_market_address = self.market_manager.address
 
             # Build setApprovalForAll transaction with False

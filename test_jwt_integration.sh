@@ -37,11 +37,11 @@ fi
 DECODED=$(echo $PADDED_PAYLOAD | base64 -d 2>/dev/null | jq '.' 2>/dev/null)
 echo "Decoded JWT payload: $DECODED"
 
-if [ -n "$DECODED" ] && echo "$DECODED" | jq -e '.account_index' > /dev/null 2>&1; then
-    ACCOUNT_INDEX=$(echo "$DECODED" | jq -r '.account_index')
-    echo "✅ JWT contains account_index: $ACCOUNT_INDEX"
+if [ -n "$DECODED" ] && echo "$DECODED" | jq -e '.wallet_address' > /dev/null 2>&1; then
+    WALLET_ADDRESS=$(echo "$DECODED" | jq -r '.wallet_address')
+    echo "✅ JWT contains wallet_address: $WALLET_ADDRESS"
 else
-    echo "❌ JWT missing account_index"
+    echo "❌ JWT missing wallet_address"
 fi
 
 if [ -n "$DECODED" ] && echo "$DECODED" | jq -e '.wallet_address' > /dev/null 2>&1; then

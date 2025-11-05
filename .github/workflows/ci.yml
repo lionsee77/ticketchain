@@ -58,13 +58,23 @@ jobs:
           docker images
 
           # Get the actual image names created by docker compose
-          PROJECT_NAME=$(basename $(pwd))
+          PROJECT_NAME=$(basename $(pwd) | tr '[:upper:]' '[:lower:]')
           echo "Project name: $PROJECT_NAME"
+
+          # Check if images exist before saving
+          if docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "${PROJECT_NAME}-api:latest"; then
+            echo "Found API image: ${PROJECT_NAME}-api:latest"
+          else
+            echo "⚠️  API image not found, checking for ticketchain-api:latest"
+            if docker images --format "table {{.Repository}}:{{.Tag}}" | grep -q "ticketchain-api:latest"; then
+              PROJECT_NAME="ticketchain"
+            fi
+          fi
 
           # Save the built images (only the ones that were actually built)
           docker save -o /tmp/ticketchain-images.tar \
-            ${PROJECT_NAME,,}-api:latest \
-            ${PROJECT_NAME,,}-blockchain:latest
+            ${PROJECT_NAME}-api:latest \
+            ${PROJECT_NAME}-blockchain:latest
 
       - name: Upload Docker images
         uses: actions/upload-artifact@v4
@@ -167,7 +177,6 @@ jobs:
               "email": "test@example.com",
               "password": "password123",
               "full_name": "Test User",
-              "account_index": 3,
               "wallet_address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
               "private_key": "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
             }')
@@ -201,25 +210,43 @@ jobs:
             exit 1
           fi
 
-          # Test 3: Test role protection - event creation
-          echo "Testing role-based access control..."
+          # Test 3: Test role assignment and protection
+          echo "Testing role assignment..."
 
-          # Regular user should fail to create event
-          CREATE_FAIL_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/create" \
+          # Assign organiser role to user
+          ROLE_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/assign-roles" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -d '{
+              "username": "testuser",
+              "roles": ["user", "organiser"]
+            }')
+
+          if echo "$ROLE_RESPONSE" | grep -q '"message"' && echo "$ROLE_RESPONSE" | grep -q "Successfully assigned"; then
+            echo "✅ Role assignment successful"
+          else
+            echo "❌ Role assignment failed"
+            exit 1
+          fi
+
+          # Test role-based access control - user with organiser role should succeed
+          echo "Testing organiser can create events..."
+          CREATE_SUCCESS_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/create" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $USER_TOKEN" \
             -d '{
-              "name": "Unauthorized Event",
+              "name": "Organiser Event",
               "venue": "Test Venue",
               "date": 1855542728,
               "price": 1000000000000000000,
               "total_tickets": 10
             }')
 
-          if echo "$CREATE_FAIL_RESPONSE" | grep -q '"detail"' && echo "$CREATE_FAIL_RESPONSE" | grep -q "403"; then
-            echo "✅ Role protection working - user cannot create events"
+          if echo "$CREATE_SUCCESS_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Organiser can create events"
           else
-            echo "⚠️  Role protection test inconclusive - may need organiser role assignment"
+            echo "❌ Organiser cannot create events"
+            exit 1
           fi
 
           # Test 4: Test profile endpoint
@@ -296,8 +323,7 @@ jobs:
             -H "Authorization: Bearer $ADMIN_TOKEN" \
             -d '{
               "event_id": 1,
-              "quantity": 2,
-              "user_account": 1
+              "quantity": 2
             }')
 
           echo "Buy Tickets Response: $BUY_RESPONSE"
@@ -358,11 +384,34 @@ jobs:
       - name: Run Loyalty System Tests
         if: matrix.test-suite == 'loyalty-system'
         run: |
+          echo "=== Setting up Authentication for Loyalty Tests ==="
+
+          # Install jq for JSON processing
+          sudo apt-get update && sudo apt-get install -y jq
+
+          # Get admin token
+          ADMIN_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "admin",
+              "password": "password123"
+            }')
+
+          ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
+
+          if [ -n "$ADMIN_TOKEN" ] && [ "$ADMIN_TOKEN" != "null" ]; then
+            echo "✅ Admin authentication successful for loyalty tests"
+          else
+            echo "❌ Admin authentication failed"
+            exit 1
+          fi
+
           echo "=== Loyalty API Tests ==="
 
           BUYER=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
           TICKET_WEI_A=50000000000000000   # 0.05 ETH
-          PREV_A=$(curl -s "http://localhost:8000/loyalty/preview?address=$BUYER&ticket_wei=$TICKET_WEI_A")
+          PREV_A=$(curl -s "http://localhost:8000/loyalty/preview?address=$BUYER&ticket_wei=$TICKET_WEI_A" \
+            -H "Authorization: Bearer $ADMIN_TOKEN")
           echo "Preview (no points) => $PREV_A"
 
           DISC_A=$(echo "$PREV_A" | jq -r '.wei_discount')
@@ -380,7 +429,7 @@ jobs:
         if: matrix.test-suite == 'resale-market'
         run: |
           echo "=== Testing Resale Market (Legacy) ==="
-          
+
           # Use the working marketplace test script
           chmod +x ./test_marketplace.sh
           ./test_marketplace.sh
@@ -389,16 +438,16 @@ jobs:
         if: matrix.test-suite == 'marketplace-system'
         run: |
           echo "=== Testing Marketplace System ==="
-          
+
           # Make test script executable and run it
           chmod +x ./test_marketplace.sh
           ./test_marketplace.sh
 
-      - name: Run Ticket Management System Tests  
+      - name: Run Ticket Management System Tests
         if: matrix.test-suite == 'ticket-system'
         run: |
           echo "=== Testing Ticket Management System ==="
-          
+
           # Make test script executable and run it
           chmod +x ./test_ticket.sh
           ./test_ticket.sh
