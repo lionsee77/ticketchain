@@ -31,7 +31,7 @@ def join_queue(user_address: str, points_redeemed: int) -> Dict:
         "user_address": user_address,
         "queue_position": position,
         "points_redeemed": points_redeemed,
-        "is_active": is_allowed_entry(user_address)
+        "can_purchase": is_allowed_purchased(user_address)
     }
     
 
@@ -47,35 +47,48 @@ def activate_next_users() -> int:
     
     activated = 0
     for user in top_users:
-        if not is_allowed_entry(user):
+        if not is_allowed_purchased(user):
             redis_client.sadd(ACTIVE_KEY, user)
             activated += 1
     
     return activated
 
 
-def complete_purchase(user_address: str) -> Dict:
-    redis_client.zrem(QUEUE_KEY, user_address)
-    redis_client.srem(ACTIVE_KEY, user_address)
+# def complete_purchase(user_address: str) -> Dict:
+#     redis_client.zrem(QUEUE_KEY, user_address)
+#     redis_client.srem(ACTIVE_KEY, user_address)
     
-    # Activate next user
-    activate_next_users()
+#     # Activate next user
+#     activate_next_users()
     
-    return {"status": "completed", "user_address": user_address}
+#     return {"status": "completed", "user_address": user_address}
 
 
 def leave_queue(user_address: str) -> Dict:
-    was_in_queue = redis_client.zrem(QUEUE_KEY, user_address)
-    was_active = redis_client.srem(ACTIVE_KEY, user_address)
-    
-    if was_active:
-        activate_next_users()
-    
+    user_address = user_address.lower()
+    try:
+        was_in_queue = redis_client.zrem(QUEUE_KEY, user_address)
+        was_allowed_purchase = redis_client.srem(ACTIVE_KEY, user_address)
+    except Exception as e:
+        print(f"[ERROR] Redis operation failed for {user_address}: {str(e)}")
+        return {
+            "status": "error",
+            "user_address": user_address,
+            "error": str(e)
+        }
+
+    if was_allowed_purchase:
+        try:
+            activate_next_users()
+        except Exception as e:
+            print(f"[ERROR] Failed to activate next users: {str(e)}")
+
     return {
         "status": "removed",
         "user_address": user_address,
         "was_in_queue": bool(was_in_queue)
     }
+
 
 
 def get_queue_stats() -> Dict:
@@ -86,7 +99,7 @@ def get_queue_stats() -> Dict:
     }
 
     
-def is_allowed_entry(user_address: str) -> bool:
+def is_allowed_purchased(user_address: str) -> bool:
     return redis_client.sismember(ACTIVE_KEY, user_address)
 
 

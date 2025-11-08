@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from .queue_manager import (
     leave_queue,
-    is_allowed_entry,
+    is_allowed_purchased,
     join_queue,
     get_position,
     complete_purchase,
@@ -20,45 +20,80 @@ router = APIRouter(prefix="/queue", tags=["Queue"])
 @router.post("/join")
 async def join_queue_endpoint(request: JoinQueueRequest):
     """
-    Redeem points on blockchain and join queue.
+    Optionally redeem loyalty points then join queue.
     Users with more points get higher priority.
     """
     try:
-        # Call blockchain to redeem points
-        if request.user_account_index is not None:
-            user_account = wm.get_user_account(request.user_account_index)
-            
-            # Build transaction
-            tx = wm.loyalty_system.functions.redeemPointsQueue(
-                wm.w3.to_checksum_address(request.user_address),
-                request.points_amount
-            )
-            
-            transaction = wm.build_user_transaction(tx, user_account)
-            tx_hash = wm.sign_and_send_user_transaction(transaction, user_account)
-            wm.w3.eth.wait_for_transaction_receipt(tx_hash)
-        
-        # Add to queue
-        result = join_queue(request.user_address.lower(), request.points_amount)
-        
+        user_address = request.user_address.lower()
+        pts = int(request.points_amount or 0)
+
+        # ✅ If redeem requested (points_amount > 0)
+        if pts > 0:
+
+            # ✅ Check user balance before redeem
+            try:
+                balance = wm.get_points_balance(user_address)
+            except Exception as e:
+                raise HTTPException(
+                    status_code=500,
+                    detail=f"Unable to fetch loyalty balance: {e}"
+                )
+
+            if balance < pts:
+                raise HTTPException(
+                    status_code=400,
+                    detail=f"Insufficient loyalty balance. Have {balance}, need {pts}"
+                )
+
+            # ✅ If user_account_index provided → redeem via Hardhat account
+            if request.user_account_index is not None:
+                try:
+                    # Use the account-by-index helper for Hardhat test accounts
+                    user_account = wm.get_user_account_by_index(request.user_account_index)
+
+                    tx = wm.loyalty_system.functions.redeemPointsQueue(
+                        wm.w3.to_checksum_address(user_address),
+                        pts
+                    )
+
+                    transaction = wm.build_user_transaction(tx, user_account)
+                    tx_hash = wm.sign_and_send_user_transaction(transaction, user_account)
+
+                    wm.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+                except Exception as e:
+                    raise HTTPException(
+                        status_code=500,
+                        detail=f"Failed to redeem points on chain: {str(e)}"
+                    )
+
+            # If account index not provided → only priority weight used
+            # (No blockchain redeem triggered)
+
+        # ✅ Add to local queue
+        result = join_queue(user_address, pts)
+
         return {
             "success": True,
             **result
         }
-        
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @router.get("/position/{user_address}")
 async def get_queue_position(user_address: str):
     """Get user's current queue position"""
     position = get_position(user_address.lower())
-    active = is_allowed_entry(user_address.lower())
+    active = is_allowed_purchased(user_address.lower())
     
     return {
         "user_address": user_address.lower(),
         "queue_position": position,
-        "can_purchase": active,
+        "can_purchase": active
     }
 
 @router.get("/can-purchase/{user_address}")
@@ -66,7 +101,7 @@ async def can_purchase(user_address: str):
     """Check if user can purchase tickets now"""
     return {
         "user_address": user_address,
-        "can_purchase": is_allowed_entry(user_address.lower())
+        "can_purchase": is_allowed_purchased(user_address.lower())
     }
 
 

@@ -202,7 +202,7 @@ async def get_event_details(event_id: int):
             status_code=500, detail=f"Failed to get event details: {str(e)}"
         )
 
-from ticket_queue.queue_manager import is_allowed_entry
+from ticket_queue.queue_manager import is_allowed_purchased
 from ticket_queue.queue_manager import leave_queue
 
 @router.post("/buy", summary="Buy fresh tickets from event organiser")
@@ -213,10 +213,16 @@ async def buy_tickets(
     ),  # Authentication required, any role
 ):
     """Buy tickets - requires authentication and active in queue but any role is allowed"""
+        
     try:
-        user_id = user_info.get("id") or str(request.user_account)
-        if not is_allowed_entry(user_id):
+        user_address = user_info["wallet_address"]
+        user_private_key = user_info["private_key"]
+        if not is_allowed_purchased(user_address.lower()):
             raise HTTPException(status_code=403, detail="Please wait in the queue, not your turn yet")
+
+        print("LEAVING QUEUE AFTER PURCHASE")
+
+        leave_result = leave_queue(user_address.lower())
 
         if not web3_manager.is_connected():
             raise HTTPException(
@@ -230,9 +236,6 @@ async def buy_tickets(
             raise HTTPException(
                 status_code=400, detail="Quantity must be greater than 0"
             )
-
-        user_wallet_address = user_info["wallet_address"]
-        user_private_key = user_info["private_key"]
 
         # Get event details to calculate total price
         try:
@@ -266,7 +269,7 @@ async def buy_tickets(
 
         # Get user account for this purchase
         user_account_obj = web3_manager.get_user_account(
-            user_wallet_address, user_private_key
+            user_address, user_private_key
         )
         user_address = user_account_obj.address
 
@@ -290,9 +293,7 @@ async def buy_tickets(
         txn["value"] = total_price
 
         tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account_obj)
-
-        leave_queue(user_id)
-
+        
         # Award loyalty points after successful ticket purchase
         loyalty_points_awarded = 0
         try:
@@ -305,6 +306,7 @@ async def buy_tickets(
 
         return {
             "success": True,
+            "leave_result": leave_result,
             "tx_hash": tx_hash.hex(),
             "event_id": request.event_id,
             "quantity": request.quantity,
