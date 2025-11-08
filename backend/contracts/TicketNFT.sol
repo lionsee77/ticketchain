@@ -2,9 +2,10 @@
 pragma solidity ^0.8.28;
 
 import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
+import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-contract TicketNFT is ERC721, Ownable {
+contract TicketNFT is ERC721, ERC721Enumerable, Ownable {
     mapping(uint256 => bool) public used;
     mapping(uint256 => uint256) public ticketToEvent; // which event does the ticket belong to
     uint256 public nextTokenId = 1;
@@ -38,5 +39,30 @@ contract TicketNFT is ERC721, Ownable {
     // Attendees can call isUsed to check if their ticket has been redeemed before
     function isUsed(uint256 ticketId) external view returns (bool) {
         return used[ticketId];
+    }
+
+    // Required overrides for ERC721Enumerable
+    function _update(address to, uint256 tokenId, address auth)
+        internal
+        override(ERC721, ERC721Enumerable)
+        returns (address)
+    {
+        return super._update(to, tokenId, auth);
+    }
+
+    function _increaseBalance(address account, uint128 value)
+        internal
+        override(ERC721, ERC721Enumerable)
+    {
+        super._increaseBalance(account, value);
+    }
+
+    function supportsInterface(bytes4 interfaceId)
+        public
+        view
+        override(ERC721, ERC721Enumerable)
+        returns (bool)
+    {
+        return super.supportsInterface(interfaceId);
     }
 }

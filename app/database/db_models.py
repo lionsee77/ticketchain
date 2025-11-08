@@ -31,7 +31,6 @@ class User(Base):
 
     wallet_address = Column(String, unique=True)
     private_key = Column(String, unique=True)
-    account_index = Column(Integer, unique=True)
     id = Column(Integer, primary_key=True, index=True)
     username = Column(String(50), unique=True, index=True, nullable=False)
     email = Column(String(100), unique=True, index=True, nullable=False)
