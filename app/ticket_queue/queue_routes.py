@@ -4,7 +4,6 @@ from .queue_manager import (
     is_allowed_purchased,
     join_queue,
     get_position,
-    complete_purchase,
     get_queue_stats)
 from pydantic import BaseModel
 
@@ -105,11 +104,11 @@ async def can_purchase(user_address: str):
     }
 
 
-@router.post("/complete/{user_address}")
-async def complete(user_address: str):
-    """Mark purchase as complete, remove from queue"""
-    result = complete_purchase(user_address.lower())
-    return result
+# @router.post("/complete/{user_address}")
+# async def complete(user_address: str):
+#     """Mark purchase as complete, remove from queue"""
+#     result = complete_purchase(user_address.lower())
+#     return result
 
 
 @router.get("/stats")

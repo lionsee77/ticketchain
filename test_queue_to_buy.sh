@@ -326,9 +326,3 @@ echo -e "\n${BLUE}queue stats${NC}"
 QUEUE_STATS=$(curl -s -X GET http://localhost:8000/queue/stats)
 echo "$QUEUE_STATS" | jq
 
-LEAVE_RESPONSE=$(curl -s -X POST "http://localhost:8000/queue/leave?user_address=0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC")
-echo "$LEAVE_RESPONSE" | jq
-
-echo -e "\n${BLUE}queue stats${NC}"
-QUEUE_STATS=$(curl -s -X GET http://localhost:8000/queue/stats)
-echo "$QUEUE_STATS" | jq
