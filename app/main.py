@@ -56,6 +56,7 @@ app.add_middleware(
     protected_paths={
         "/events",
         "/market",
+        "/loyalty",
         "/tickets",
         "/auth/profile",
         "/auth/me",
