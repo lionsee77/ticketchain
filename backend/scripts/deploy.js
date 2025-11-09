@@ -103,6 +103,11 @@ async function main() {
   await (await loyaltySystem.setSpender(eventManagerAddress, true)).wait();
   console.log("✓ Spender authorised:", eventManagerAddress);
 
+  // Allow Oracle account to trigger award/redeem in LoyaltySystem (for direct API calls)
+  console.log("Authorising Oracle as spender in LoyaltySystem...");
+  await (await loyaltySystem.setSpender(deployer.address, true)).wait();
+  console.log("✓ Oracle spender authorised:", deployer.address);
+
   // Set Loyalty System in Event Manager (TODO)
   // console.log("Setting LoyaltySystem in EventManager...");
   // await (await eventManager.setLoyaltySystem(loyaltySystemAddress)).wait();

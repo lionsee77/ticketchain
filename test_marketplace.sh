@@ -67,7 +67,8 @@ echo "Parsed event response:"
 echo $EVENT_RESPONSE | jq . 2>/dev/null || echo "Failed to parse JSON: $EVENT_RESPONSE"
 
 echo -e "\n${GREEN}5.5. Check event details${NC}"
-EVENTS_RESPONSE=$(curl -s -X GET http://localhost:8000/events/all)
+EVENTS_RESPONSE=$(curl -s "http://localhost:8000/events/all" \
+  -H "Authorization: Bearer $ORGANISER_TOKEN")
 echo "All events:"
 echo $EVENTS_RESPONSE | jq
 

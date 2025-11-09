@@ -163,6 +163,7 @@ class AuthService:
             "roles": user_roles,
             "session_id": session_id,
             "wallet_address": user.wallet_address,
+            "private_key": user.private_key,
         }
         access_token = self.create_access_token(token_data)
         refresh_token = self.create_refresh_token(token_data)
