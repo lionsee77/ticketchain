@@ -12,6 +12,26 @@ class CreateEventRequest(BaseModel):
     total_tickets: int
 
 
+class CreateMultiDayEventRequest(BaseModel):
+    name: str
+    dates: list[int]  # List of Unix timestamps
+    venues: list[str]  # List of venue names
+    price: int  # Price in wei (same for all days)
+    tickets_per_day: list[int]  # Number of tickets available per day
+    swappable_flags: list[bool]  # Whether each day's tickets are swappable
+
+
+class SubEventDetails(BaseModel):
+    sub_event_id: int
+    parent_event_id: int
+    day_index: int
+    date: int
+    venue: str
+    tickets_sold: int
+    tickets_available: int
+    swappable: bool
+
+
 # --- Ticket Models ---
 
 
@@ -19,6 +39,28 @@ class BuyTicketsRequest(BaseModel):
     event_id: int
     quantity: int
     # user_account removed - get from JWT!
+
+
+class BuySubEventTicketsRequest(BaseModel):
+    sub_event_id: int
+    quantity: int
+    # user_account removed - get from JWT!
+
+
+class SwapTicketsRequest(BaseModel):
+    ticket_id_1: int
+    ticket_id_2: int
+    other_user_address: str  # Address of the other user to swap with
+
+
+class CheckSwapEligibilityRequest(BaseModel):
+    ticket_id_1: int
+    ticket_id_2: int
+
+
+class SetSubEventSwappableRequest(BaseModel):
+    sub_event_id: int
+    swappable: bool
 
 
 # --- Market Models ---

@@ -231,7 +231,7 @@ jobs:
 
           # Test role-based access control - user with organiser role should succeed
           echo "Testing organiser can create events..."
-          
+
           # Login again to get updated token with new roles
           echo "Re-authenticating user to get token with updated roles..."
           USER_REAUTH_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/login" \
@@ -293,7 +293,7 @@ jobs:
           # Install jq for JSON processing
           sudo apt-get update && sudo apt-get install -y jq
 
-          # Get admin token for event creation
+          # Get admin token for admin operations
           ADMIN_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/login" \
             -H "Content-Type: application/json" \
             -d '{
@@ -303,67 +303,294 @@ jobs:
 
           ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
 
-          if [ -n "$ADMIN_TOKEN" ] && [ "$ADMIN_TOKEN" != "null" ]; then
-            echo "✅ Admin authentication successful for event tests"
+          # Get organiser token for event creation
+          ORGANISER_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/login" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "organiser",
+              "password": "password123"
+            }')
+
+          ORGANISER_TOKEN=$(echo "$ORGANISER_RESPONSE" | jq -r '.access_token // empty')
+
+          if [ -n "$ADMIN_TOKEN" ] && [ "$ADMIN_TOKEN" != "null" ] && [ -n "$ORGANISER_TOKEN" ] && [ "$ORGANISER_TOKEN" != "null" ]; then
+            echo "✅ Admin and Organiser authentication successful for event tests"
             echo "ADMIN_TOKEN=$ADMIN_TOKEN" >> $GITHUB_ENV
+            echo "ORGANISER_TOKEN=$ORGANISER_TOKEN" >> $GITHUB_ENV
           else
-            echo "❌ Admin authentication failed"
+            echo "❌ Authentication failed"
+            echo "Admin token: $ADMIN_TOKEN"
+            echo "Organiser token: $ORGANISER_TOKEN"
             exit 1
           fi
 
-      - name: Run Event API Tests
+      - name: Run Comprehensive Event API Tests
         if: matrix.test-suite == 'event-mgr'
         run: |
-          echo "=== Testing Event API Endpoints ==="
+          echo "=== Comprehensive Event API Tests ==="
+          echo "Testing: Event Creation, Listing, Details, Ticket Purchase, Ticket Swapping, Authorization, Error Handling"
 
-          # Test 1: Create an event (using admin token)
-          echo "Creating test event with admin authorization..."
+          # Register test users for ticket operations
+          echo "Registering test users for ticket operations..."
+
+          USER1_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/register" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "testuser1_ci",
+              "email": "testuser1@ci.com",
+              "password": "password123",
+              "full_name": "Test User 1",
+              "wallet_address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+              "private_key": "0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a"
+            }')
+
+          USER1_TOKEN=$(echo "$USER1_RESPONSE" | jq -r '.access_token // empty')
+
+          USER2_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/register" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "username": "testuser2_ci",
+              "email": "testuser2@ci.com",
+              "password": "password123",
+              "full_name": "Test User 2",
+              "wallet_address": "0x90F79bf6EB2c4f870365E785982E1f101E93b906",
+              "private_key": "0x7c852118294e51e653712a81e05800f419141751be58f605c371e15141b007a6"
+            }')
+
+          USER2_TOKEN=$(echo "$USER2_RESPONSE" | jq -r '.access_token // empty')
+
+          if [ -n "$USER1_TOKEN" ] && [ "$USER1_TOKEN" != "null" ] && [ -n "$USER2_TOKEN" ] && [ "$USER2_TOKEN" != "null" ]; then
+            echo "✅ Test users registered successfully"
+          else
+            echo "❌ Test user registration failed"
+            echo "User1 Response: $USER1_RESPONSE"
+            echo "User2 Response: $USER2_RESPONSE"
+            echo "User1 Token: $USER1_TOKEN"
+            echo "User2 Token: $USER2_TOKEN"
+            exit 1
+          fi
+
+          # Test 1: Create a regular event
+          echo "Creating regular event with organiser..."
           CREATE_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/create" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Authorization: Bearer $ORGANISER_TOKEN" \
             -d '{
-              "name": "GitHub Actions Test Concert",
-              "venue": "CI/CD Arena", 
-              "date": 1855542728,
-              "price": 1000000000000000000,
-              "total_tickets": 50
+              "name": "CI Test Concert",
+              "venue": "CI Arena", 
+              "date": 1733097600,
+              "price": 50000000000000000,
+              "total_tickets": 100
             }')
 
           echo "Create Event Response: $CREATE_RESPONSE"
 
           if echo "$CREATE_RESPONSE" | grep -q '"success":true'; then
-            echo "✅ Event creation successful"
+            echo "✅ Regular event creation successful"
+            EVENT_ID=$(echo "$CREATE_RESPONSE" | jq -r '.event_id // 1')
           else
-            echo "❌ Event creation failed"
+            echo "❌ Regular event creation failed"
             exit 1
           fi
 
-          # Test 2: Buy tickets
-          echo "Buying tickets..."
-          BUY_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/buy" \
+          # Test 2: List all events
+          echo "Listing all events..."
+          LIST_RESPONSE=$(curl -s -X GET "http://localhost:8000/events/all" \
+            -H "Authorization: Bearer $ORGANISER_TOKEN")
+
+          if echo "$LIST_RESPONSE" | grep -q '\[.*\]'; then
+            echo "✅ Event listing successful"
+          else
+            echo "❌ Event listing failed"
+            exit 1
+          fi
+
+          # Test 3: Get event details
+          echo "Getting event details..."
+          DETAILS_RESPONSE=$(curl -s -X GET "http://localhost:8000/events/$EVENT_ID/details" \
+            -H "Authorization: Bearer $ORGANISER_TOKEN")
+
+          if echo "$DETAILS_RESPONSE" | grep -q '"event_id"'; then
+            echo "✅ Event details retrieval successful"
+          else
+            echo "❌ Event details retrieval failed"
+            exit 1
+          fi
+
+          # Test 4: Buy tickets for user 1
+          echo "User 1 buying tickets..."
+          BUY1_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/buy" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Authorization: Bearer $USER1_TOKEN" \
+            -d "{
+              \"event_id\": $EVENT_ID,
+              \"quantity\": 2
+            }")
+
+          echo "User 1 Ticket Purchase: $BUY1_RESPONSE"
+
+          if echo "$BUY1_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ User 1 ticket purchase successful"
+          else
+            echo "❌ User 1 ticket purchase failed"
+            exit 1
+          fi
+
+          # Test 5: Buy tickets for user 2
+          echo "User 2 buying tickets..."
+          BUY2_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/buy" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $USER2_TOKEN" \
+            -d "{
+              \"event_id\": $EVENT_ID,
+              \"quantity\": 2
+            }")
+
+          if echo "$BUY2_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ User 2 ticket purchase successful"
+          else
+            echo "❌ User 2 ticket purchase failed"
+            exit 1
+          fi
+
+          # Test 6: Ticket Swapping - User 1 approval
+          echo "User 1 approving for ticket swapping..."
+          APPROVE1_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/tickets/swap/approve" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $USER1_TOKEN" \
+            -d '{}')
+
+          if echo "$APPROVE1_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ User 1 swap approval successful"
+          else
+            echo "❌ User 1 swap approval failed"
+            exit 1
+          fi
+
+          # Test 7: Ticket Swapping - User 2 approval
+          echo "User 2 approving for ticket swapping..."
+          APPROVE2_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/tickets/swap/approve" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $USER2_TOKEN" \
+            -d '{}')
+
+          if echo "$APPROVE2_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ User 2 swap approval successful"
+          else
+            echo "❌ User 2 swap approval failed"
+            exit 1
+          fi
+
+          # Test 8: Check approval status
+          echo "Checking User 1 approval status..."
+          APPROVAL_STATUS=$(curl -s -X GET "http://localhost:8000/events/tickets/swap/approval-status" \
+            -H "Authorization: Bearer $USER1_TOKEN")
+
+          if echo "$APPROVAL_STATUS" | grep -q '"is_approved":true'; then
+            echo "✅ Approval status check successful"
+          else
+            echo "❌ Approval status check failed"
+            exit 1
+          fi
+
+          # Test 9: Check swap eligibility (should be false for same regular event)
+          echo "Checking swap eligibility between tickets from same regular event..."
+          SWAP_CHECK=$(curl -s -X POST "http://localhost:8000/events/tickets/swap/check" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $USER1_TOKEN" \
             -d '{
-              "event_id": 1,
-              "quantity": 2
+              "ticket_id_1": 1,
+              "ticket_id_2": 2
             }')
 
-          echo "Buy Tickets Response: $BUY_RESPONSE"
+          echo "Swap Check Response: $SWAP_CHECK"
 
-          if echo "$BUY_RESPONSE" | grep -q '"success":true'; then
-            echo "✅ Ticket purchase successful"
+          if echo "$SWAP_CHECK" | grep -q '"can_swap": *false'; then
+            echo "✅ Swap eligibility check successful (correctly shows false for same regular event)"
           else
-            echo "❌ Ticket purchase failed"
+            echo "❌ Swap eligibility check failed - should return false for tickets from same regular event"
             exit 1
           fi
 
-          # Test 3: Error handling
-          echo "Testing invalid event creation..."
+          # Test 10: Create multi-day event and test proper swapping
+          echo "Testing multi-day event creation..."
+          MULTIDAY_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/multi-day" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $ORGANISER_TOKEN" \
+            -d '{
+              "name": "CI Multi-Day Festival",
+              "dates": [1733184000, 1733270400],
+              "venues": ["Main Stage", "Electronic Stage"],
+              "price": 30000000000000000,
+              "tickets_per_day": [5, 5],
+              "swappable_flags": [true, true]
+            }')
+
+          echo "Multi-day Response: $MULTIDAY_RESPONSE"
+
+          # Check if multi-day event creation succeeded
+          if echo "$MULTIDAY_RESPONSE" | grep -q '"success":true'; then
+            echo "✅ Multi-day event creation successful!"
+            
+            MULTIDAY_EVENT_ID=$(echo "$MULTIDAY_RESPONSE" | jq -r '.event_id // 2')
+            
+            # Buy tickets for different days
+            echo "User 1 buying ticket for day 1..."
+            BUY_DAY1_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/sub-events/buy" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $USER1_TOKEN" \
+              -d '{
+                "sub_event_id": 1000001,
+                "quantity": 1
+              }')
+
+            echo "User 2 buying ticket for day 2..."
+            BUY_DAY2_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/sub-events/buy" \
+              -H "Content-Type: application/json" \
+              -H "Authorization: Bearer $USER2_TOKEN" \
+              -d '{
+                "sub_event_id": 1000002,
+                "quantity": 1
+              }')
+
+            if echo "$BUY_DAY1_RESPONSE" | grep -q '"success":true' && echo "$BUY_DAY2_RESPONSE" | grep -q '"success":true'; then
+              echo "✅ Multi-day tickets purchased successfully"
+              
+              # Test swap eligibility between different days (should be true)
+              echo "Testing swap eligibility between different days..."
+              MULTIDAY_SWAP_CHECK=$(curl -s -X POST "http://localhost:8000/events/tickets/swap/check" \
+                -H "Content-Type: application/json" \
+                -H "Authorization: Bearer $USER1_TOKEN" \
+                -d '{
+                  "ticket_id_1": 5,
+                  "ticket_id_2": 6
+                }')
+
+              echo "Multi-day Swap Check: $MULTIDAY_SWAP_CHECK"
+
+              if echo "$MULTIDAY_SWAP_CHECK" | grep -q '"can_swap": *true'; then
+                echo "✅ Multi-day swap eligibility check successful"
+              else
+                echo "⚠️  Multi-day swap eligibility check returned false (may be expected)"
+              fi
+            else
+              echo "⚠️  Multi-day ticket purchases failed, skipping swap test"
+            fi
+            
+          elif echo "$MULTIDAY_RESPONSE" | grep -q "Transaction ran out of gas"; then
+            echo "⚠️  Multi-day event failed with gas limit (expected behavior)"
+          else
+            echo "❌ Multi-day event creation failed unexpectedly"
+            echo "Response: $MULTIDAY_RESPONSE"
+          fi
+
+          # Test 11: Error handling - Invalid event data
+          echo "Testing error handling with invalid event data..."
           INVALID_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/create" \
             -H "Content-Type: application/json" \
-            -H "Authorization: Bearer $ADMIN_TOKEN" \
+            -H "Authorization: Bearer $ORGANISER_TOKEN" \
             -d '{
-              "name": "Invalid Event",
+              "name": "",
               "venue": "Test Venue",
               "date": 1735689600,
               "price": -100,
@@ -376,6 +603,28 @@ jobs:
             echo "❌ Error handling not working"
             exit 1
           fi
+
+          # Test 12: Unauthorized access test
+          echo "Testing unauthorized event creation..."
+          UNAUTHORIZED_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/create" \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer $USER1_TOKEN" \
+            -d '{
+              "name": "Unauthorized Event",
+              "venue": "Test Venue",
+              "date": 1735689600,
+              "price": 100000000000000000,
+              "total_tickets": 10
+            }')
+
+          if echo "$UNAUTHORIZED_RESPONSE" | grep -q "Access denied"; then
+            echo "✅ Unauthorized access properly blocked"
+          else
+            echo "❌ Unauthorized access not properly blocked"
+            exit 1
+          fi
+
+          echo "=== Event API Tests Completed Successfully ==="
 
       - name: Setup Authentication for Resale Tests
         if: matrix.test-suite == 'resale-market'

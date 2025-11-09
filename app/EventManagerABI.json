@@ -48,6 +48,87 @@
       },
       {
         "indexed": false,
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "organiser",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "numDays",
+        "type": "uint256"
+      }
+    ],
+    "name": "MultiDayEventCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "subEventId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "parentEventId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "dayIndex",
+        "type": "uint256"
+      }
+    ],
+    "name": "SubEventCreated",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "subEventId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "buyer",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "quantity",
+        "type": "uint256"
+      }
+    ],
+    "name": "SubEventTicketsPurchased",
+    "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "eventId",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
         "internalType": "address",
         "name": "buyer",
         "type": "address"
@@ -61,6 +142,62 @@
     ],
     "name": "TicketsPurchased",
     "type": "event"
+  },
+  {
+    "anonymous": false,
+    "inputs": [
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "ticketId1",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "uint256",
+        "name": "ticketId2",
+        "type": "uint256"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "user1",
+        "type": "address"
+      },
+      {
+        "indexed": false,
+        "internalType": "address",
+        "name": "user2",
+        "type": "address"
+      }
+    ],
+    "name": "TicketsSwapped",
+    "type": "event"
+  },
+  {
+    "inputs": [],
+    "name": "approveForSwapping",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "subEventId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "quantity",
+        "type": "uint256"
+      }
+    ],
+    "name": "buySubEventTickets",
+    "outputs": [],
+    "stateMutability": "payable",
+    "type": "function"
   },
   {
     "inputs": [
@@ -107,6 +244,30 @@
     "inputs": [
       {
         "internalType": "uint256",
+        "name": "ticketId1",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ticketId2",
+        "type": "uint256"
+      }
+    ],
+    "name": "canSwapTickets",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
         "name": "eventId",
         "type": "uint256"
       }
@@ -145,6 +306,44 @@
       }
     ],
     "name": "createEvent",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "string",
+        "name": "name",
+        "type": "string"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "dates",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "string[]",
+        "name": "venues",
+        "type": "string[]"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ticketPrice",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256[]",
+        "name": "ticketsPerDay",
+        "type": "uint256[]"
+      },
+      {
+        "internalType": "bool[]",
+        "name": "swappableFlags",
+        "type": "bool[]"
+      }
+    ],
+    "name": "createMultiDayEvent",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
@@ -206,6 +405,30 @@
         "internalType": "uint256",
         "name": "",
         "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "eventToSubEvents",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
       }
     ],
     "name": "events",
@@ -254,9 +477,157 @@
         "internalType": "bool",
         "name": "isActive",
         "type": "bool"
+      },
+      {
+        "internalType": "bool",
+        "name": "isMultiDay",
+        "type": "bool"
       }
     ],
     "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "eventId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getParentEventId",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "subEventId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSubEventDetails",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "parentEventId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "dayIndex",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "date",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "venue",
+        "type": "string"
+      },
+      {
+        "internalType": "bool",
+        "name": "swappable",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalTickets",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ticketsSold",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "parentEventId",
+        "type": "uint256"
+      }
+    ],
+    "name": "getSubEvents",
+    "outputs": [
+      {
+        "internalType": "uint256[]",
+        "name": "",
+        "type": "uint256[]"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "address",
+        "name": "user",
+        "type": "address"
+      }
+    ],
+    "name": "isApprovedForSwapping",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "eventId",
+        "type": "uint256"
+      }
+    ],
+    "name": "isSubEvent",
+    "outputs": [
+      {
+        "internalType": "bool",
+        "name": "",
+        "type": "bool"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "ticketId",
+        "type": "uint256"
+      }
+    ],
+    "name": "markTicketAsUsed",
+    "outputs": [],
+    "stateMutability": "nonpayable",
     "type": "function"
   },
   {
@@ -326,12 +697,125 @@
   {
     "inputs": [
       {
+        "internalType": "uint256",
+        "name": "subEventId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "bool",
+        "name": "swappable",
+        "type": "bool"
+      }
+    ],
+    "name": "setSubEventSwappable",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
         "internalType": "address",
         "name": "_ticketNFTAddress",
         "type": "address"
       }
     ],
     "name": "setTicketNFTAddress",
+    "outputs": [],
+    "stateMutability": "nonpayable",
+    "type": "function"
+  },
+  {
+    "inputs": [],
+    "name": "subEventCounter",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "",
+        "type": "uint256"
+      }
+    ],
+    "name": "subEvents",
+    "outputs": [
+      {
+        "internalType": "uint256",
+        "name": "id",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "parentEventId",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "dayIndex",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "date",
+        "type": "uint256"
+      },
+      {
+        "internalType": "string",
+        "name": "venue",
+        "type": "string"
+      },
+      {
+        "internalType": "bool",
+        "name": "swappable",
+        "type": "bool"
+      },
+      {
+        "internalType": "uint256",
+        "name": "totalTickets",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ticketsSold",
+        "type": "uint256"
+      }
+    ],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [
+      {
+        "internalType": "uint256",
+        "name": "ticketId1",
+        "type": "uint256"
+      },
+      {
+        "internalType": "uint256",
+        "name": "ticketId2",
+        "type": "uint256"
+      },
+      {
+        "internalType": "address",
+        "name": "user1",
+        "type": "address"
+      },
+      {
+        "internalType": "address",
+        "name": "user2",
+        "type": "address"
+      }
+    ],
+    "name": "swapTickets",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
