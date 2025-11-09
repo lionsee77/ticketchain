@@ -8,7 +8,7 @@ redis_client  = redis.Redis(host="redis", port=6379, decode_responses=True)
 
 QUEUE_KEY = "ticket_queue" # List of users waiting in line
 ACTIVE_KEY = "active_buyers" # Set of users currently allowed to buy
-MAX_ACTIVE_BUYERS  = 10 # number of concurrent users allowed to buy
+MAX_ACTIVE_BUYERS  = 2 # number of concurrent users allowed to buy
 
 
 def join_queue(user_address: str, points_redeemed: int) -> Dict:
@@ -38,20 +38,23 @@ def join_queue(user_address: str, points_redeemed: int) -> Dict:
 def activate_next_users() -> int:
     current_active = redis_client.scard(ACTIVE_KEY)
     slots = MAX_ACTIVE_BUYERS - current_active
-    
     if slots <= 0:
         return 0
-    
-    # Get top users (highest scores)
-    top_users = redis_client.zrevrange(QUEUE_KEY, 0, slots - 1)
-    
+
+    # read more than "slots"
+    # scan top N (e.g., top 50) instead of just slots
+    top_users = redis_client.zrevrange(QUEUE_KEY, 0, 49)
+
     activated = 0
     for user in top_users:
+        if activated >= slots:
+            break
         if not is_allowed_purchased(user):
             redis_client.sadd(ACTIVE_KEY, user)
             activated += 1
-    
+
     return activated
+
 
 
 # def complete_purchase(user_address: str) -> Dict:
