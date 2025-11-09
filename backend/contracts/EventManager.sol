@@ -513,6 +513,11 @@ contract EventManager {
             return false;
         }
 
+        // Tickets must be for different sub-events (different days)
+        if (subEventId1 == subEventId2) {
+            return false;
+        }
+
         // Both sub-events must be swappable (if they are sub-events)
         if (isSubEvent(subEventId1) && !subEvents[subEventId1].swappable) {
             return false;
