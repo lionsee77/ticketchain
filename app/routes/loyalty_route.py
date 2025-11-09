@@ -252,3 +252,72 @@ def redeem_points(request: RedeemPointsRequest, user_info: dict = Depends(requir
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to redeem points: {str(e)}")
+
+
+@router.post("/redeem/queue", summary="Redeem loyalty points for queue priority")
+def redeem_points(request: RedeemPointsRequest, user_info: dict = Depends(require_authenticated_user)):
+    """
+    Redeem loyalty points for queue priority.
+    User must have already approved LoyaltySystem to spend their points.
+    Oracle account calls the redemption function on behalf of the user.
+    """
+    try:
+        wallet_address = user_info["wallet_address"]
+        
+        # Check if user has sufficient points
+        points_available = wm.preview_points_available(wallet_address, request.ticket_wei)
+        if points_available == 0:
+            return {
+                "success": True,
+                "points_redeemed": 0,
+                "wei_discount": 0,
+                "wei_due": request.ticket_wei,
+                "message": "No loyalty points available for redemption"
+            }
+        
+        # Check if user has approved LoyaltySystem
+        allowance = wm.get_points_allowance(wallet_address)
+        if allowance < points_available:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Insufficient allowance. Please approve LoyaltySystem first. Need {points_available}, have {allowance}"
+            )
+        
+        # Use oracle account to call redemption (oracle is authorized spender)
+        oracle_account = wm.get_user_account_by_index(0)
+        
+        function_call = wm.loyalty_system.functions.redeemPointsQueue(
+            wm.w3.to_checksum_address(wallet_address),
+            #change to points
+            int(request.ticket_wei)
+        )
+        
+        
+        # changed here 
+        # txn = wm.build_user_transaction(function_call, oracle_account, gas=200000)
+        txn = wm.build_user_transaction(function_call, oracle_account)
+        tx_hash = wm.sign_and_send_user_transaction(txn, oracle_account)
+        
+        # Get transaction receipt to parse events
+        receipt = wm.w3.eth.wait_for_transaction_receipt(tx_hash)
+        
+        # Parse the PointsRedeemedTicket event
+        redeem_queue = wm.loyalty_system.events.PointsRedeemedQueue().process_receipt(receipt)
+        
+        points_redeemed = 0
+        
+        #check here
+        if redeem_queue:
+            points_redeemed = redeem_queue[0]["args"]["pointsBurned"]
+
+        
+        return {
+            "success": True,
+            "tx_hash": tx_hash.hex(),
+            "user_address": wallet_address,
+            "ticket_wei": str(request.ticket_wei),
+            "points_redeemed": str(points_redeemed),
+            "message": f"Successfully redeemed {points_redeemed} points for queue priority"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to redeem points: {str(e)}")
