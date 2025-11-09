@@ -420,7 +420,7 @@ jobs:
           # Test 4: Buy tickets for user 1
           echo "User 1 buying tickets..."
 
-          QUEUE_RESPONSE=$(curl -s -X POST $http://localhost:8000/queue/join \
+          QUEUE_RESPONSE=$(curl -s -X POST "http://localhost:8000/queue/join" \
             -H "Authorization: Bearer $USER1_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{
@@ -449,7 +449,7 @@ jobs:
           # Test 5: Buy tickets for user 2
           echo "User 2 buying tickets..."
 
-          QUEUE2_RESPONSE=$(curl -s -X POST $http://localhost:8000/queue/join \
+          QUEUE2_RESPONSE=$(curl -s -X POST "http://localhost:8000/queue/join" \
             -H "Authorization: Bearer $USER2_TOKEN" \
             -H "Content-Type: application/json" \
             -d '{
