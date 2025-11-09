@@ -419,6 +419,16 @@ jobs:
 
           # Test 4: Buy tickets for user 1
           echo "User 1 buying tickets..."
+
+          QUEUE_RESPONSE=$(curl -s -X POST $BASE_URL/queue/join \
+            -H "Authorization: Bearer $USER1_TOKEN" \
+            -H "Content-Type: application/json" \
+            -d '{
+              "user_address": "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC",
+              "points_amount": 0,
+              "user_account_index": 2
+            }')
+
           BUY1_RESPONSE=$(curl -s -X POST "http://localhost:8000/events/buy" \
             -H "Content-Type: application/json" \
             -H "Authorization: Bearer $USER1_TOKEN" \
@@ -665,7 +675,7 @@ jobs:
 
           # Pre-test health checks for loyalty system
           echo "=== Pre-test Health Checks ==="
-          
+
           # Check if loyalty endpoints are responding
           HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/)
           if [ "$HEALTH_CHECK" != "200" ]; then
@@ -678,7 +688,7 @@ jobs:
           AUTH_TEST=$(curl -s -X POST "http://localhost:8000/auth/login" \
             -H "Content-Type: application/json" \
             -d '{"username": "admin", "password": "password123"}')
-          
+
           if echo "$AUTH_TEST" | grep -q "access_token"; then
             echo "✅ JWT authentication system working"
           else
