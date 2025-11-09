@@ -189,6 +189,7 @@ async def fetch_all_events():
                         "totalTickets": int(ev[6]),
                         "ticketsSold": int(ev[7]),
                         "isActive": bool(ev[8]),
+                        "isMultiDay": bool(ev[9]),
                     }
                 )
             except Exception:
@@ -276,19 +277,19 @@ async def get_event_details(event_id: int):
                 total_tickets,
                 tickets_sold,
                 is_active,
+                is_multi_day_flag,
             ) = event
         except Exception as e:
             raise HTTPException(status_code=404, detail=f"Event not found: {str(e)}")
 
-        # Check if this is a multi-day event by looking for sub-events
+        # Check if this is a multi-day event using the contract flag
         sub_events = []
-        is_multi_day = False
-        try:
-            sub_event_ids = web3_manager.event_manager.functions.getSubEvents(
-                event_id
-            ).call()
-            if sub_event_ids:
-                is_multi_day = True
+        is_multi_day = is_multi_day_flag
+        if is_multi_day:
+            try:
+                sub_event_ids = web3_manager.event_manager.functions.getSubEvents(
+                    event_id
+                ).call()
                 for sub_event_id in sub_event_ids:
                     try:
                         sub_event = (
@@ -302,9 +303,9 @@ async def get_event_details(event_id: int):
                             day_index,
                             se_date,
                             se_venue,
-                            se_tickets_sold,
-                            se_tickets_available,
                             se_swappable,
+                            se_total_tickets,
+                            se_tickets_sold,
                         ) = sub_event
 
                         sub_events.append(
@@ -314,8 +315,8 @@ async def get_event_details(event_id: int):
                                 "date": se_date,
                                 "venue": se_venue,
                                 "tickets_sold": se_tickets_sold,
-                                "tickets_available": se_tickets_available,
-                                "tickets_remaining": se_tickets_available
+                                "tickets_available": se_total_tickets,
+                                "tickets_remaining": se_total_tickets
                                 - se_tickets_sold,
                                 "swappable": se_swappable,
                             }
@@ -325,9 +326,10 @@ async def get_event_details(event_id: int):
                             f"Warning: Could not get details for sub-event {sub_event_id}: {e}"
                         )
                         continue
-        except Exception:
-            # Not a multi-day event or error getting sub-events
-            pass
+            except Exception:
+                # Error getting sub-events
+                print(f"Warning: Could not get sub-events for event {event_id}")
+                pass
 
         response = {
             "event_id": event_id_ret,
@@ -399,6 +401,7 @@ async def buy_tickets(
                 total_tickets,
                 tickets_sold,
                 is_active,
+                is_multi_day,
             ) = event
         except Exception as e:
             raise HTTPException(status_code=404, detail=f"Event not found: {str(e)}")
@@ -507,9 +510,9 @@ async def buy_sub_event_tickets(
                 day_index,
                 date,
                 venue,
-                tickets_sold,
-                tickets_available,
                 swappable,
+                total_tickets,
+                tickets_sold,
             ) = sub_event
 
             # Get parent event for price
@@ -537,10 +540,10 @@ async def buy_sub_event_tickets(
         if not is_active:
             raise HTTPException(status_code=400, detail="Parent event is not active")
 
-        if tickets_sold + request.quantity > tickets_available:
+        if tickets_sold + request.quantity > total_tickets:
             raise HTTPException(
                 status_code=400,
-                detail=f"Not enough tickets available for this day. Only {tickets_available - tickets_sold} tickets left",
+                detail=f"Not enough tickets available for this day. Only {total_tickets - tickets_sold} tickets left",
             )
 
         # Calculate total price
@@ -868,9 +871,9 @@ async def get_sub_events(event_id: int):
                     day_index,
                     se_date,
                     se_venue,
-                    se_tickets_sold,
-                    se_tickets_available,
                     se_swappable,
+                    se_total_tickets,
+                    se_tickets_sold,
                 ) = sub_event
 
                 sub_events.append(
@@ -881,8 +884,8 @@ async def get_sub_events(event_id: int):
                         "date": se_date,
                         "venue": se_venue,
                         "tickets_sold": se_tickets_sold,
-                        "tickets_available": se_tickets_available,
-                        "tickets_remaining": se_tickets_available - se_tickets_sold,
+                        "tickets_available": se_total_tickets,
+                        "tickets_remaining": se_total_tickets - se_tickets_sold,
                         "swappable": se_swappable,
                     }
                 )
@@ -931,9 +934,9 @@ async def get_sub_event_details(sub_event_id: int):
                 day_index,
                 se_date,
                 se_venue,
-                se_tickets_sold,
-                se_tickets_available,
                 se_swappable,
+                se_total_tickets,
+                se_tickets_sold,
             ) = sub_event
 
             # Get parent event for additional info
@@ -948,6 +951,7 @@ async def get_sub_event_details(sub_event_id: int):
                 total_tickets,
                 _,  # tickets_sold (tracked at sub-event level)
                 is_active,
+                _,  # isMultiDay (not needed here)
             ) = parent_event
 
         except Exception as e:
@@ -965,8 +969,8 @@ async def get_sub_event_details(sub_event_id: int):
             "date": se_date,
             "venue": se_venue,
             "tickets_sold": se_tickets_sold,
-            "tickets_available": se_tickets_available,
-            "tickets_remaining": se_tickets_available - se_tickets_sold,
+            "tickets_available": se_total_tickets,
+            "tickets_remaining": se_total_tickets - se_tickets_sold,
             "swappable": se_swappable,
             "ticket_price_wei": ticket_price,
             "ticket_price_eth": web3_manager.w3.from_wei(ticket_price, "ether"),
