@@ -85,10 +85,10 @@ contract LoyaltySystem is Ownable, ReentrancyGuard {
         address to,
         uint256 weiAmount
     ) external nonReentrant returns (uint256 minted) {
-        // require(
-        //     isSpender[msg.sender],
-        //     "Not authorised for awarding loyalty points"
-        // );
+        require(
+            isSpender[msg.sender],
+            "Not authorised for awarding loyalty points"
+        );
         require(to != address(0), "Invalid to address");
         require(
             weiAmount > 0,
@@ -110,10 +110,10 @@ contract LoyaltySystem is Ownable, ReentrancyGuard {
         nonReentrant
         returns (uint256 pointsBurned, uint256 weiDiscount)
     {
-        // require(
-        //     isSpender[msg.sender],
-        //     "Not authorised for redeeming loyalty points"
-        // );
+        require(
+            isSpender[msg.sender],
+            "Not authorised for redeeming loyalty points"
+        );
         require(from != address(0), "Invalid to address");
         require(
             ticketWei > 0,
@@ -135,17 +135,17 @@ contract LoyaltySystem is Ownable, ReentrancyGuard {
         address from,
         uint256 pointsAmt
     ) external nonReentrant {
-        // require(
-        //     isSpender[msg.sender],
-        //     "Not authorised for redeeming loyalty points"
-        // );
+        require(
+            isSpender[msg.sender],
+            "Not authorised for redeeming loyalty points"
+        );
         require(from != address(0), "Invalid to address");
         require(
             pointsAmt > 0,
             "Invalid redemption amount. Points amount should be greater than 0"
         );
 
-        // points.burnFrom(from, pointsAmt);
+        points.burnFrom(from, pointsAmt);
         emit PointsRedeemedQueue(from, pointsAmt);
     }
 }

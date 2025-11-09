@@ -554,9 +554,10 @@ curl -s "$BASE_URL/queue/stats" | jq
 # 10A) Get testuser loyalty balance
 ###############################################################################
 echo -e "\n${BLUE}→ Fetching testuser loyalty balance${NC}"
-BAL=$(curl -s -X GET "$BASE_URL/loyalty/balance/$TEST_WALLET")
-echo "$BAL" | jq
-
+BAL=$(curl -s -X GET "http://localhost:8000/loyalty/balance" \
+  -H "Authorization: Bearer $TESTUSER_TOKEN")
+echo "Balance BEFORE redeeming points:"
+echo $BAL | jq
 PTS=$(echo "$BAL" | jq -r '.points // .balance // 0')
 echo -e "${CYAN}testuser currently has $PTS points${NC}"
 
@@ -574,11 +575,18 @@ REDEEM_RESPONSE=$(curl -s -X POST "$BASE_URL/queue/join" \
   -H "Content-Type: application/json" \
   -d "{
     \"user_address\": \"$TEST_WALLET\",
-    \"points_amount\": 30000,
+    \"points_amount\": \"$PTS\",
     \"user_account_index\": 2
   }")
 
 echo "$REDEEM_RESPONSE" | jq
+
+
+echo -e "\n${BLUE}→ Fetching testuser loyalty balance${NC}"
+BAL=$(curl -s -X GET "http://localhost:8000/loyalty/balance" \
+  -H "Authorization: Bearer $TESTUSER_TOKEN")
+echo "Balance after redeeming points:"
+echo $BAL | jq
 
 
 echo -e "\n${BLUE}ℹ️ user5 Queue position AFTER testuser join${NC}"

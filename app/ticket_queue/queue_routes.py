@@ -46,25 +46,42 @@ async def join_queue_endpoint(request: JoinQueueRequest):
 
             # ✅ If user_account_index provided → redeem via Hardhat account
             if request.user_account_index is not None:
-                try:
-                    # Use the account-by-index helper for Hardhat test accounts
-                    user_account = wm.get_user_account_by_index(request.user_account_index)
+                user_account = wm.get_user_account_by_index(request.user_account_index)
+                    
+                approval_tx = wm.loyalty_point.functions.approve(
+                    wm.loyalty_system.address,
+                    pts
+                )
+                approval_txn = wm.build_user_transaction(approval_tx, user_account)
+                approval_hash = wm.sign_and_send_user_transaction(approval_txn, user_account)
+                wm.w3.eth.wait_for_transaction_receipt(approval_hash)
 
-                    tx = wm.loyalty_system.functions.redeemPointsQueue(
-                        wm.w3.to_checksum_address(user_address),
-                        pts
-                    )
-
-                    transaction = wm.build_user_transaction(tx, user_account)
-                    tx_hash = wm.sign_and_send_user_transaction(transaction, user_account)
-
-                    wm.w3.eth.wait_for_transaction_receipt(tx_hash)
-
+                try: 
+                    points_used = wm.redeem_loyalty_points_queue(user_address, request.points_amount)
                 except Exception as e:
                     raise HTTPException(
                         status_code=500,
-                        detail=f"Failed to redeem points on chain: {str(e)}"
+                        detail=f"Failed to redeem points via contract call: {str(e)}"
                     )
+                # try:
+                    # Use the account-by-index helper for Hardhat test accounts
+                    # user_account = wm.get_user_account_by_index(request.user_account_index)\
+                    
+                #     tx = wm.loyalty_system.functions.redeemPointsQueue(
+                #         wm.w3.to_checksum_address(user_address),
+                #         pts
+                #     )
+
+                    # transaction = wm.build_user_transaction(tx, user_account)
+                    # tx_hash = wm.sign_and_send_user_transaction(transaction, user_account)
+                    
+                    # wm.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+                # except Exception as e:
+                #     raise HTTPException(
+                #         status_code=500,
+                #         detail=f"Failed to redeem points on chain: {str(e)}"
+                #     )
 
             # If account index not provided → only priority weight used
             # (No blockchain redeem triggered)
