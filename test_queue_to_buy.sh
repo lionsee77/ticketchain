@@ -330,7 +330,6 @@ BUY_RESPONSE=$(curl -s -X POST $BASE_URL/events/buy \
 echo -e "${CYAN}Purchase response (testuser):${NC}"
 echo "$BUY_RESPONSE" | jq
 echo -e "\n${GREEN}✅ PURCHASE DONE${NC}"
-
 # Check loyalty points awarded
 LOYALTY_POINTS=$(echo "$BUY_RESPONSE" | jq -r '.loyalty_points_awarded // 0')
 if [[ "$LOYALTY_POINTS" -gt 0 ]]; then
@@ -484,14 +483,6 @@ echo -e "${CYAN}🧾 Purchase response (user5):${NC}"
 echo "$BUY_RESPONSE" | jq
 
 echo -e "\n${GREEN}✅ user5 PURCHASE COMPLETE${NC}"
-
-# Check loyalty points awarded
-LOYALTY_POINTS=$(echo "$BUY_RESPONSE" | jq -r '.loyalty_points_awarded // 0')
-if [[ "$LOYALTY_POINTS" -gt 0 ]]; then
-  echo -e "${GREEN}✅ Loyalty points awarded: $LOYALTY_POINTS${NC}"
-else
-  echo -e "${RED}❌ WARNING: No loyalty points were awarded!${NC}"
-fi
 
 # Show user7 updated queue position
 echo -e "\n${CYAN}🔎 Checking updated queue position for user7 (can_purchase expected to be 1)...${NC}"
