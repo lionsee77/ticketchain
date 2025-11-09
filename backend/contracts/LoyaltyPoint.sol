@@ -5,7 +5,6 @@ import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import "@openzeppelin/contracts/token/ERC20/extensions/ERC20Burnable.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
 
-
 contract LoyaltyPoint is ERC20, ERC20Burnable, Ownable {
     address public minter; // For EventManager
 
@@ -16,10 +15,11 @@ contract LoyaltyPoint is ERC20, ERC20Burnable, Ownable {
         _;
     }
 
-    constructor(address initialOwner, string memory name, string memory symbol)
-        ERC20(name, symbol)
-        Ownable(initialOwner)
-    {}
+    constructor(
+        address initialOwner,
+        string memory name,
+        string memory symbol
+    ) ERC20(name, symbol) Ownable(initialOwner) {}
 
     function setMinter(address newMinter) external onlyOwner {
         emit MinterUpdated(minter, newMinter);

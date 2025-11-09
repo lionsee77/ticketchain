@@ -494,6 +494,130 @@ echo -e "\n${BLUE}ℹ️  FINAL Queue Stats (post additional checks)${NC}"
 QUEUE_STATS=$(curl -s -X GET $BASE_URL/queue/stats)
 echo "$QUEUE_STATS" | jq
 
+echo -e "\n${YELLOW}🏁 TEST RUN COMPLETE${NC}"
+echo -e "\n${GREEN}Cleaning queue for all test users...${NC}"
+
+USERS_TO_CLEAN=(
+  "0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+  "0x90F79bf6EB2c4f870365E785982E1f101E93b906"
+  "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"
+  "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"
+  "0x976EA74026E726554dB657fA54763abd0C3a0aa9"
+  "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955"
+  "0x23618e81E3f5cdF7f54C3d65f7FBc0aBf5B21E8f"
+)
+
+for WALLET in "${USERS_TO_CLEAN[@]}"; do
+  curl -s -X POST "$BASE_URL/queue/leave?user_address=$WALLET" >/dev/null
+done
+
+echo -e "\n${BLUE}Queue stats after cleanup:${NC}"
+curl -s "$BASE_URL/queue/stats" | jq
+
+
+###############################################################################
+# 10) TEST: Priority queue using existing earned loyalty points
+###############################################################################
+echo -e "\n${GREEN}10) Priority test — testuser redeems existing points${NC}"
+
+TEST_WALLET="0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC"
+
+# USERS entering before testuser to ensure baseline ordering
+REJOIN_USERS=(
+  "0x90F79bf6EB2c4f870365E785982E1f101E93b906"   # testuser2
+  "0x15d34AAf54267DB7D7c367839AAf71A00a2C6A65"   # user4
+  "0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc"   # user5
+  "0x14dC79964da2C08b23698B3D3cc7Ca32193d9955"   # user7
+)
+
+echo -e "\n${BLUE}→ Re-queueing base users (0 pts)${NC}"
+
+i=3
+for WALLET in "${REJOIN_USERS[@]}"; do
+  curl -s -X POST "$BASE_URL/queue/join" \
+    -H "Content-Type: application/json" \
+    -d "{
+      \"user_address\": \"$WALLET\",
+      \"points_amount\": 0,
+      \"user_account_index\": $i
+    }" >/dev/null
+  ((i+=1))
+done
+
+echo -e "${GREEN}✅ Base users rejoined${NC}"
+
+echo -e "\n${BLUE}→ Checking queue stats BEFORE testuser joins${NC}"
+curl -s "$BASE_URL/queue/stats" | jq
+
+
+###############################################################################
+# 10A) Get testuser loyalty balance
+###############################################################################
+echo -e "\n${BLUE}→ Fetching testuser loyalty balance${NC}"
+BAL=$(curl -s -X GET "$BASE_URL/loyalty/balance/$TEST_WALLET")
+echo "$BAL" | jq
+
+PTS=$(echo "$BAL" | jq -r '.points // .balance // 0')
+echo -e "${CYAN}testuser currently has $PTS points${NC}"
+
+echo -e "\n${BLUE}ℹ️ user5 Queue position BEFORE testuser join${NC}"
+POSITION_RESPONSE=$(curl -s -X GET $BASE_URL/queue/position/0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc)
+echo -e "${CYAN}Position (user5):${NC}"
+echo "$POSITION_RESPONSE" | jq
+
+###############################################################################
+# 10B) testuser joins queue using his existing loyalty points
+###############################################################################
+echo -e "\n${GREEN}→ testuser joins queue with redemption of $PTS points${NC}"
+
+REDEEM_RESPONSE=$(curl -s -X POST "$BASE_URL/queue/join" \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"user_address\": \"$TEST_WALLET\",
+    \"points_amount\": 30000,
+    \"user_account_index\": 2
+  }")
+
+echo "$REDEEM_RESPONSE" | jq
+
+
+echo -e "\n${BLUE}ℹ️ user5 Queue position AFTER testuser join${NC}"
+POSITION_RESPONSE=$(curl -s -X GET $BASE_URL/queue/position/0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc)
+echo -e "${CYAN}Position (user5):${NC}"
+echo "$POSITION_RESPONSE" | jq
+
+
+echo -e "\n${GREEN}8) testuser2 buys 1 ticket${NC}"
+
+BUY_RESPONSE=$(curl -s -X POST $BASE_URL/events/buy \
+-H "Authorization: Bearer $TESTUSER2_TOKEN" \
+-H "Content-Type: application/json" \
+-d "{
+  \"event_id\": $EVENT_ID,
+  \"quantity\": 1
+}")
+
+echo -e "${CYAN}Purchase response (testuser2):${NC}"
+echo "$BUY_RESPONSE" | jq
+echo -e "\n${GREEN}✅ testuser2 PURCHASE DONE${NC}"
+
+
+echo -e "\n${BLUE}ℹ️ testuser queue position AFTER testuser2 purchase${NC}"
+POSITION_RESPONSE=$(curl -s -X GET $BASE_URL/queue/position/0x3C44CdDdB6a900fa2b585dd299e03d12FA4293BC)
+echo -e "${CYAN}Position (testuser):${NC}"
+echo "$POSITION_RESPONSE" | jq
+
+
+echo -e "\n${BLUE}ℹ️ user5 queue position AFTER testuser2 purchase${NC}"
+POSITION_RESPONSE=$(curl -s -X GET $BASE_URL/queue/position/0x9965507D1a55bcC2695C58ba16FB37d819B0A4dc)
+echo -e "${CYAN}Position (user5):${NC}"
+echo "$POSITION_RESPONSE" | jq
+
+
+echo -e "\n${BLUE}→ Queue stats after priority test${NC}"
+curl -s "$BASE_URL/queue/stats" | jq
+
+
 
 echo -e "\n${YELLOW}🏁 TEST RUN COMPLETE${NC}"
 echo -e "\n${GREEN}Cleaning queue for all test users...${NC}"
