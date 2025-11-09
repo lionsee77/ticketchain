@@ -406,46 +406,79 @@ jobs:
       - name: Run Loyalty System Tests
         if: matrix.test-suite == 'loyalty-system'
         run: |
-          echo "=== Setting up Authentication for Loyalty Tests ==="
+          echo "=== Running Comprehensive Loyalty System Integration Test ==="
 
-          # Install jq for JSON processing
-          sudo apt-get update && sudo apt-get install -y jq
+          # Install dependencies for loyalty test
+          sudo apt-get update && sudo apt-get install -y jq bc
 
-          # Get admin token
-          ADMIN_RESPONSE=$(curl -s -X POST "http://localhost:8000/auth/login" \
+          # Make the test script executable
+          chmod +x ./test_loyalty_integration.sh
+
+          # Pre-test health checks for loyalty system
+          echo "=== Pre-test Health Checks ==="
+          
+          # Check if loyalty endpoints are responding
+          HEALTH_CHECK=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/)
+          if [ "$HEALTH_CHECK" != "200" ]; then
+            echo "❌ API not responding (HTTP $HEALTH_CHECK)"
+            exit 1
+          fi
+          echo "✅ API health check passed"
+
+          # Verify JWT authentication is working
+          AUTH_TEST=$(curl -s -X POST "http://localhost:8000/auth/login" \
             -H "Content-Type: application/json" \
-            -d '{
-              "username": "admin",
-              "password": "password123"
-            }')
-
-          ADMIN_TOKEN=$(echo "$ADMIN_RESPONSE" | jq -r '.access_token // empty')
-
-          if [ -n "$ADMIN_TOKEN" ] && [ "$ADMIN_TOKEN" != "null" ]; then
-            echo "✅ Admin authentication successful for loyalty tests"
+            -d '{"username": "admin", "password": "password123"}')
+          
+          if echo "$AUTH_TEST" | grep -q "access_token"; then
+            echo "✅ JWT authentication system working"
           else
-            echo "❌ Admin authentication failed"
+            echo "❌ JWT authentication failed"
+            echo "Response: $AUTH_TEST"
             exit 1
           fi
 
-          echo "=== Loyalty API Tests ==="
+          echo "Starting full loyalty system test suite..."
+          echo "This test covers:"
+          echo "• JWT authentication for all loyalty endpoints" 
+          echo "• Automatic loyalty points earning on ticket purchase"
+          echo "• Manual loyalty points awarding via API"
+          echo "• Points approval system (ERC20 pattern)"
+          echo "• Points redemption with 30% discount cap"
+          echo "• Math validation and discount calculations"
+          echo "• Complete loyalty lifecycle end-to-end"
 
-          BUYER=0x70997970C51812dc3A010C7d01b50e0d17dc79C8
-          TICKET_WEI_A=50000000000000000   # 0.05 ETH
-          PREV_A=$(curl -s "http://localhost:8000/loyalty/preview?address=$BUYER&ticket_wei=$TICKET_WEI_A" \
-            -H "Authorization: Bearer $ADMIN_TOKEN")
-          echo "Preview (no points) => $PREV_A"
+          # Run the comprehensive loyalty integration test
+          if ./test_loyalty_integration.sh; then
+            echo ""
+            echo "🎉 ==================================="
+            echo "🎉 LOYALTY SYSTEM TESTS PASSED!"
+            echo "🎉 ==================================="
+            echo "✅ JWT authentication working on all endpoints"
+            echo "✅ Points earning (3,000 points per ETH) functional"
+            echo "✅ Manual points awarding via API working"
+            echo "✅ ERC20 approval/allowance system working"
+            echo "✅ Points redemption with 30% discount cap working"
+            echo "✅ Math validation and security checks passing"
+            echo "✅ Complete loyalty lifecycle end-to-end tested"
+            echo "✅ Oracle account authorization working"
+            echo "✅ All 18 test steps completed successfully"
+            echo "🎉 ==================================="
+          else
+            echo ""
+            echo "❌ =================================="
+            echo "❌ LOYALTY SYSTEM TESTS FAILED"
+            echo "❌ =================================="
+            echo "Check the detailed output above for specific failure information"
+            echo "Common issues to check:"
+            echo "• JWT token authentication failures"
+            echo "• Oracle account authorization issues"
+            echo "• Smart contract interaction problems" 
+            echo "• Points calculation or redemption errors"
+            exit 1
+          fi
 
-          DISC_A=$(echo "$PREV_A" | jq -r '.wei_discount')
-          DUE_A=$(echo "$PREV_A"  | jq -r '.wei_due')
-
-          # discount must be zero; due must equal full ticket price
-          [ "$DISC_A" = "0" ] || { echo "❌ expected zero discount for zero balance (got $DISC_A)"; exit 1; }
-          [ "$DUE_A"  = "$TICKET_WEI_A" ] || { echo "❌ wei_due should equal ticket price when no points"; exit 1; }
-
-          echo "✅ Scenario A passed (no points => no discount)"
-
-          echo "❓ Scenario B passed (discount > 0 and capped at 30%): TODO"
+          echo "=== Loyalty System CI Test Suite Completed Successfully ==="
 
       - name: Run Resale Market Tests
         if: matrix.test-suite == 'resale-market'
