@@ -316,8 +316,7 @@ async def get_event_details(event_id: int):
                                 "venue": se_venue,
                                 "tickets_sold": se_tickets_sold,
                                 "tickets_available": se_total_tickets,
-                                "tickets_remaining": se_total_tickets
-                                - se_tickets_sold,
+                                "tickets_remaining": se_total_tickets - se_tickets_sold,
                                 "swappable": se_swappable,
                             }
                         )
