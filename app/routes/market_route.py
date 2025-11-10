@@ -347,24 +347,13 @@ async def get_active_listings(user_info: dict = Depends(require_authenticated_us
                 is_active = bool(listing[3])
 
                 if is_active:
-                    event_id = int(listing[2])
-                    event_name = None
-                    
-                    # Fetch event name
-                    try:
-                        event = mgr.functions.events(event_id).call()
-                        event_name = event[1]  # name field from event struct
-                    except Exception:
-                        event_name = f"Event #{event_id}"
-                    
                     active_listings.append(
                         ListingResponse(
                             ticket_id=token_id,
                             seller_address=seller_address,
                             price=int(listing[1]),
-                            event_id=event_id,
+                            event_id=int(listing[2]),
                             is_active=is_active,
-                            event_name=event_name,
                         )
                     )
             except Exception:
@@ -402,24 +391,13 @@ async def get_my_listings(user_info: dict = Depends(require_authenticated_user))
                 is_active = bool(listing[3])
 
                 if is_active and seller_address.lower() == user_address.lower():
-                    event_id = int(listing[2])
-                    event_name = None
-                    
-                    # Fetch event name
-                    try:
-                        event = mgr.functions.events(event_id).call()
-                        event_name = event[1]  # name field from event struct
-                    except Exception:
-                        event_name = f"Event #{event_id}"
-                    
                     user_listings.append(
                         ListingResponse(
                             ticket_id=token_id,
                             seller_address=seller_address,
                             price=int(listing[1]),
-                            event_id=event_id,
+                            event_id=int(listing[2]),
                             is_active=is_active,
-                            event_name=event_name,
                         )
                     )
             except Exception:

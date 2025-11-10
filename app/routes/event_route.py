@@ -512,15 +512,18 @@ async def buy_tickets(
                 print(f"⚠️ Warning: Failed to send loyalty discount refund: {str(e)}")
                 # Don't fail the purchase if refund fails
 
-        # Award loyalty points after successful ticket purchase
+        # Award loyalty points after successful ticket purchase (only if not using loyalty redemption)
         loyalty_points_awarded = 0
-        try:
-            loyalty_points_awarded = web3_manager.award_loyalty_points(
-                user_address, total_price
-            )
-        except Exception as e:
-            # Log the error but don't fail the ticket purchase
-            print(f"Warning: Failed to award loyalty points: {str(e)}")
+        if not request.use_loyalty_points:
+            try:
+                loyalty_points_awarded = web3_manager.award_loyalty_points(
+                    user_address, total_price
+                )
+            except Exception as e:
+                # Log the error but don't fail the ticket purchase
+                print(f"Warning: Failed to award loyalty points: {str(e)}")
+        else:
+            print(f"ℹ️ No loyalty points awarded - user redeemed points for discount on this purchase")
 
         # Build response with loyalty information
         response = {
@@ -542,7 +545,7 @@ async def buy_tickets(
                 "loyalty_points_redeemed": points_redeemed,
                 "loyalty_discount_wei": loyalty_discount,
                 "loyalty_discount_eth": web3_manager.w3.from_wei(loyalty_discount, "ether"),
-                "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. Paid {web3_manager.w3.from_wei(total_price, 'ether')} ETH to EventManager, then received {web3_manager.w3.from_wei(loyalty_discount, 'ether')} ETH loyalty refund. Net cost: {web3_manager.w3.from_wei(final_price, 'ether')} ETH. Redeemed {points_redeemed} loyalty points. Awarded {loyalty_points_awarded} new loyalty points.",
+                "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. Paid {web3_manager.w3.from_wei(total_price, 'ether')} ETH to EventManager, then received {web3_manager.w3.from_wei(loyalty_discount, 'ether')} ETH loyalty refund. Net cost: {web3_manager.w3.from_wei(final_price, 'ether')} ETH. Redeemed {points_redeemed} loyalty points. No new loyalty points awarded (used existing points for discount).",
             })
         else:
             response["message"] = f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User {user_address} paid and received NFTs. Awarded {loyalty_points_awarded} loyalty points."

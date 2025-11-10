@@ -312,11 +312,11 @@ class ApiClient {
     return this.handleResponse(response);
   }
 
-  async delistTicket(ticketId: number): Promise<{ message: string }> {
+  async delistTicket(listingId: number): Promise<{ message: string }> {
     const response = await fetch(`${this.baseUrl}/market/delist`, {
       method: 'POST',
       headers: this.getAuthHeaders(),
-      body: JSON.stringify({ ticket_id: ticketId }),
+      body: JSON.stringify({ listing_id: listingId }),
     });
     return this.handleResponse(response);
   }
