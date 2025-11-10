@@ -31,12 +31,12 @@ RUN adduser --disabled-password --gecos '' appuser
 RUN chown -R appuser:appuser /app
 USER appuser
 
-# Expose port
+# Expose port (will be overridden by Coolify)
 EXPOSE 8000
 
-# Health check
+# Health check (using dynamic port)
 HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
-    CMD curl -f http://localhost:8000/ || exit 1
+    CMD curl -f http://localhost:${PORT:-8000}/ || exit 1
 
 # Run the application via startup script
 CMD ["./startup.sh"]
