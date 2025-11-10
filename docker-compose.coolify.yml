@@ -33,10 +33,6 @@ services:
     environment:
       - PORT=${FRONTEND_PORT:-3000}
       - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://api:8000}
-    volumes:
-      - ./frontend/webapp:/app
-      - /app/node_modules
-      - /app/.next
     depends_on:
       - api
     networks:
