@@ -28,6 +28,15 @@ def _ensure_contracts():
     return resale, mgr
 
 
+def _ensure_ticket_contract():
+    ticket = getattr(web3_manager, "ticket_nft", None)
+    if ticket is None:
+        raise HTTPException(
+            status_code=500, detail="TicketNFT contract not configured"
+        )
+    return ticket
+
+
 # --- APPROVAL ENDPOINTS ---
 
 
@@ -198,14 +207,14 @@ def delist_ticket(
 
     try:
         seller_acct = web3_manager.get_user_account(wallet_address, private_key)
-        seller_addr = wallet_address
+        seller_addr = Web3.to_checksum_address(wallet_address)
     except Exception:
         raise HTTPException(status_code=400, detail="invalid wallet credentials")
 
     # verify listing exists and seller matches
     try:
         listing = resale.functions.listings(ticket_id).call()
-        listing_seller = listing[0]
+        listing_seller = Web3.to_checksum_address(listing[0])
         active = bool(listing[3]) if len(listing) > 3 else bool(listing[2])
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"listing lookup failed: {e}")
@@ -248,7 +257,7 @@ def buy_listing(
 
     try:
         buyer_acct = web3_manager.get_user_account(wallet_address, private_key)
-        buyer_addr = wallet_address
+        buyer_addr = Web3.to_checksum_address(wallet_address)
     except Exception:
         raise HTTPException(status_code=400, detail="invalid wallet credentials")
 
@@ -257,7 +266,7 @@ def buy_listing(
         listing = resale.functions.listings(req.ticket_id).call()
         listing_active = bool(listing[3]) if len(listing) > 3 else bool(listing[2])
         price = int(listing[1])
-        seller_addr = listing[0]
+        seller_addr = Web3.to_checksum_address(listing[0])
         event_id = int(listing[2])
     except Exception as e:
         raise HTTPException(status_code=404, detail=f"listing not found: {e}")
@@ -323,38 +332,43 @@ def buy_listing(
 async def get_active_listings(user_info: dict = Depends(require_authenticated_user)):
     """Get all active listings in the marketplace"""
     resale, mgr = _ensure_contracts()
+    ticket = _ensure_ticket_contract()
 
     try:
-        # Get total events
-        total_events = mgr.functions.eventCounter().call()
+        # Get the next token ID to know the range of existing tokens
+        next_token_id = ticket.functions.nextTokenId().call()
         active_listings = []
 
-        # Iterate through events
-        for event_id in range(1, total_events + 1):
+        # Iterate through all possible token IDs (1 to next_token_id - 1)
+        for token_id in range(1, next_token_id):
             try:
-                event = mgr.functions.events(event_id).call()
-                total_tickets = event[6]  # totalTickets from event struct
+                listing = resale.functions.listings(token_id).call()
+                seller_address = listing[0]
+                is_active = bool(listing[3])
 
-                # Check tickets for this event
-                for ticket_id in range(1, total_tickets + 1):
+                if is_active:
+                    event_id = int(listing[2])
+                    event_name = None
+                    
+                    # Fetch event name
                     try:
-                        listing = resale.functions.listings(ticket_id).call()
-                        seller_address = listing[0]
-                        is_active = bool(listing[3])
-
-                        if is_active:
-                            active_listings.append(
-                                ListingResponse(
-                                    ticket_id=ticket_id,
-                                    seller_address=seller_address,
-                                    price=int(listing[1]),
-                                    event_id=int(listing[2]),
-                                    is_active=is_active,
-                                )
-                            )
+                        event = mgr.functions.events(event_id).call()
+                        event_name = event[1]  # name field from event struct
                     except Exception:
-                        continue
+                        event_name = f"Event #{event_id}"
+                    
+                    active_listings.append(
+                        ListingResponse(
+                            ticket_id=token_id,
+                            seller_address=seller_address,
+                            price=int(listing[1]),
+                            event_id=event_id,
+                            is_active=is_active,
+                            event_name=event_name,
+                        )
+                    )
             except Exception:
+                # Token might not exist or have no listing, continue
                 continue
 
         return MarketListingsResponse(
@@ -372,39 +386,44 @@ async def get_active_listings(user_info: dict = Depends(require_authenticated_us
 async def get_my_listings(user_info: dict = Depends(require_authenticated_user)):
     """Get all listings by the authenticated user"""
     resale, mgr = _ensure_contracts()
+    ticket = _ensure_ticket_contract()
 
     try:
         user_address = user_info["wallet_address"]
-        # Get total events
-        total_events = mgr.functions.eventCounter().call()  # Use eventCounter instead
+        # Get the next token ID to know the range of existing tokens
+        next_token_id = ticket.functions.nextTokenId().call()
         user_listings = []
 
-        # Iterate through events
-        for event_id in range(1, total_events + 1):
+        # Iterate through all possible token IDs (1 to next_token_id - 1)
+        for token_id in range(1, next_token_id):
             try:
-                event = mgr.functions.events(event_id).call()
-                total_tickets = event[6]  # totalTickets from event struct
+                listing = resale.functions.listings(token_id).call()
+                seller_address = listing[0]
+                is_active = bool(listing[3])
 
-                # Check tickets for this event
-                for ticket_id in range(1, total_tickets + 1):
+                if is_active and seller_address.lower() == user_address.lower():
+                    event_id = int(listing[2])
+                    event_name = None
+                    
+                    # Fetch event name
                     try:
-                        listing = resale.functions.listings(ticket_id).call()
-                        seller_address = listing[0]
-                        is_active = bool(listing[3])
-
-                        if is_active and seller_address.lower() == user_address.lower():
-                            user_listings.append(
-                                ListingResponse(
-                                    ticket_id=ticket_id,
-                                    seller_address=seller_address,
-                                    price=int(listing[1]),
-                                    event_id=int(listing[2]),
-                                    is_active=is_active,
-                                )
-                            )
+                        event = mgr.functions.events(event_id).call()
+                        event_name = event[1]  # name field from event struct
                     except Exception:
-                        continue
+                        event_name = f"Event #{event_id}"
+                    
+                    user_listings.append(
+                        ListingResponse(
+                            ticket_id=token_id,
+                            seller_address=seller_address,
+                            price=int(listing[1]),
+                            event_id=event_id,
+                            is_active=is_active,
+                            event_name=event_name,
+                        )
+                    )
             except Exception:
+                # Token might not exist or have no listing, continue
                 continue
 
         return MarketListingsResponse(

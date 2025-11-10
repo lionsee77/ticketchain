@@ -1,7 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
-import { useRouter } from 'next/navigation'
+import { useState } from 'react'
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -15,8 +14,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
-import { listTicket, approveMarketplace, type CreateListingRequest } from '@/lib/api/market'
-import { getUserProfile } from '@/lib/api/client'
+import { apiClient } from '@/lib/api/client'
 
 interface SellTicketsDialogProps {
   open: boolean
@@ -32,36 +30,9 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
-  const [userAccount, setUserAccount] = useState<number | null>(null)
-  const router = useRouter()
-
-  // Load user account when dialog opens
-  useEffect(() => {
-    if (open && !userAccount) {
-      const token = localStorage.getItem('token')
-      if (!token) {
-        setError('Please log in to sell tickets')
-        return
-      }
-
-      getUserProfile().then(() => {
-        // Use wallet address instead of account_index
-        setUserAccount(0) // Set a default since we no longer need account index
-        setError(null)
-      }).catch((err) => {
-        console.error('Failed to load user profile:', err)
-        setError('Failed to load user account. Please try logging out and back in.')
-      })
-    }
-  }, [open, userAccount])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    if (!userAccount) {
-      setError('User account not loaded. Please try refreshing or logging in again.')
-      return
-    }
 
     if (!formData.ticket_id || !formData.price_eth) {
       setError('Please fill in all fields')
@@ -88,17 +59,25 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
       // Convert ETH to wei (1 ETH = 10^18 wei)
       const priceWei = Math.floor(priceEth * Math.pow(10, 18))
 
-      // First approve the marketplace to handle the ticket
-      await approveMarketplace(userAccount)
+      console.log('🔍 Listing ticket:', { ticketId, priceWei })
 
-      // Then list the ticket
-      const listRequest: CreateListingRequest = {
-        ticket_id: ticketId,
-        price: priceWei,
-        seller_account: userAccount
+      // First check if marketplace is approved
+      const approvalStatus = await apiClient.checkMarketApprovalStatus()
+      console.log('📋 Approval status:', approvalStatus)
+      
+      // If not approved, approve it first
+      if (!approvalStatus.is_approved) {
+        console.log('✅ Approving marketplace...')
+        await apiClient.approveMarket()
       }
 
-      await listTicket(listRequest)
+      // Then list the ticket (backend gets seller from JWT token)
+      console.log('📝 Calling listTicket API...')
+      const result = await apiClient.listTicket({
+        ticket_id: ticketId,
+        price: priceWei
+      })
+      console.log('✅ List result:', result)
 
       setSuccess(true)
       setTimeout(() => {
@@ -149,16 +128,6 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 py-4">
-              {userAccount !== null ? (
-                <div className="text-sm text-gray-600 bg-green-50 p-2 rounded">
-                  ✓ Selling from account: {userAccount}
-                </div>
-              ) : (
-                <div className="text-sm text-orange-600 bg-orange-50 p-2 rounded">
-                  Loading your account information...
-                </div>
-              )}
-
               <div className="grid grid-cols-4 items-center gap-4">
                 <Label htmlFor="ticket_id" className="text-right">
                   Ticket ID
@@ -210,7 +179,7 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading || userAccount === null}>
+              <Button type="submit" disabled={loading}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 List Ticket
               </Button>

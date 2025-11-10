@@ -39,12 +39,16 @@ class BuyTicketsRequest(BaseModel):
     event_id: int
     quantity: int
     # user_account removed - get from JWT!
+    # Whether the buyer wants to apply loyalty points to this purchase (optional)
+    use_loyalty_points: Optional[bool] = False
 
 
 class BuySubEventTicketsRequest(BaseModel):
     sub_event_id: int
     quantity: int
     # user_account removed - get from JWT!
+    # Whether the buyer wants to apply loyalty points to this purchase (optional)
+    use_loyalty_points: Optional[bool] = False
 
 
 class SwapTicketsRequest(BaseModel):

@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod"
 import { useForm } from "react-hook-form"
 import * as z from "zod"
 import { Button } from "@/components/ui/button"
+import { Checkbox } from "@/components/ui/checkbox"
 import {
   Dialog,
   DialogContent,
@@ -20,10 +21,12 @@ import {
   FormItem,
   FormLabel,
   FormMessage,
+  FormDescription,
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
-import { buyTickets, type Event } from "@/lib/api/events"
-import { getUserProfile } from "@/lib/api/client"
+import { type Event } from "@/lib/api/events"
+import { apiClient } from "@/lib/api/client"
+import { Loader2 } from "lucide-react"
 
 const formSchema = z.object({
   quantity: z.string().min(1, {
@@ -31,7 +34,15 @@ const formSchema = z.object({
   }).refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
     message: "Quantity must be a positive number.",
   }),
+  useLoyaltyPoints: z.boolean(),
 })
+
+interface LoyaltyPreview {
+  points_applicable: number
+  wei_discount: string
+  wei_due: string
+  points_to_redeem: number
+}
 
 interface BuyTicketsDialogProps {
   event: Event
@@ -43,51 +54,81 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
   const [success, setSuccess] = React.useState<string | null>(null)
-  const [userAccountIndex, setUserAccountIndex] = React.useState<number | null>(null)
+  const [loyaltyPointsAwarded, setLoyaltyPointsAwarded] = React.useState<number>(0)
+  const [loyaltyPreview, setLoyaltyPreview] = React.useState<LoyaltyPreview | null>(null)
+  const [loadingPreview, setLoadingPreview] = React.useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
     defaultValues: {
       quantity: "1",
+      useLoyaltyPoints: false,
     },
   })
 
-  // Get user account index when dialog opens
+  // Watch for changes to fetch loyalty preview
+  const useLoyaltyPoints = form.watch("useLoyaltyPoints")
+  const quantity = Number(form.watch("quantity")) || 1
+
+  // Fetch loyalty preview when loyalty checkbox is checked
   React.useEffect(() => {
-    if (open && userAccountIndex === null) {
-      getUserProfile()
-        .then(() => {
-          setUserAccountIndex(0) // Set default since we no longer use account index
+    const fetchLoyaltyPreview = async () => {
+      try {
+        setLoadingPreview(true)
+        // Convert ETH price to wei
+        const pricePerTicketWei = BigInt(Math.floor(parseFloat(event.ticket_price) * 1e18))
+        const totalWei = pricePerTicketWei * BigInt(quantity)
+        
+        const preview = await apiClient.getLoyaltyPreview(totalWei.toString())
+        
+        // Convert loyalty points from wei format (18 decimals) to regular number
+        const pointsApplicableWei = BigInt(preview.points_applicable)
+        const pointsApplicableFormatted = Number(pointsApplicableWei / BigInt(1e18))
+        
+        setLoyaltyPreview({
+          points_applicable: pointsApplicableFormatted,
+          wei_discount: preview.wei_discount,
+          wei_due: preview.wei_due,
+          points_to_redeem: pointsApplicableFormatted,
         })
-        .catch(err => {
-          console.error('Failed to get user profile:', err)
-          setError('Failed to get user account information')
-        })
+      } catch (err) {
+        console.error("Failed to fetch loyalty preview:", err)
+        setLoyaltyPreview(null)
+      } finally {
+        setLoadingPreview(false)
+      }
     }
-  }, [open, userAccountIndex])
+
+    if (useLoyaltyPoints && quantity > 0) {
+      fetchLoyaltyPreview()
+    } else {
+      setLoyaltyPreview(null)
+    }
+  }, [useLoyaltyPoints, quantity, event.ticket_price])
 
   async function onSubmit(values: z.infer<typeof formSchema>) {
     try {
       setIsLoading(true)
       setError(null)
       setSuccess(null)
-
-      if (userAccountIndex === null) {
-        throw new Error('User account information not available')
-      }
+      setLoyaltyPointsAwarded(0)
 
       console.log("Buying tickets for event:", event.id)
       console.log("Form data:", values)
-      console.log("Using user account index:", userAccountIndex)
 
-      const result = await buyTickets({
+      const result = await apiClient.buyTicket({
         event_id: Number(event.id),
         quantity: Number(values.quantity),
-        user_account: userAccountIndex,
+        use_loyalty_points: values.useLoyaltyPoints,
       })
 
-      const shortTxHash = result.tx_hash.substring(0, 8) + '...'
-      setSuccess(`${values.quantity} ticket${Number(values.quantity) > 1 ? 's' : ''} purchased! Tx: ${shortTxHash}`)
+      // Show success with loyalty points
+      const pointsMsg = result.loyalty_points_awarded 
+        ? ` 🎉 Earned ${result.loyalty_points_awarded} loyalty points!` 
+        : ''
+      
+      setLoyaltyPointsAwarded(result.loyalty_points_awarded || 0)
+      setSuccess(`${values.quantity} ticket${Number(values.quantity) > 1 ? 's' : ''} purchased!${pointsMsg}`)
       form.reset()
 
       // Call the callback to refresh data
@@ -95,11 +136,13 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
         await onTicketsPurchased()
       }
 
-      // Auto-close dialog after 3 seconds on success
+      // Auto-close dialog after 4 seconds on success
       setTimeout(() => {
         setOpen(false)
         setSuccess(null)
-      }, 3000)
+        setLoyaltyPointsAwarded(0)
+        setLoyaltyPreview(null)
+      }, 4000)
 
     } catch (err) {
       console.error("Buy tickets error:", err)
@@ -110,8 +153,16 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
   }
 
   // Calculate total price
-  const quantity = Number(form.watch("quantity")) || 1
-  const totalPrice = (parseFloat(event.ticket_price) * quantity).toFixed(4)
+  const totalPriceEth = parseFloat(event.ticket_price) * quantity
+  const totalPriceDisplay = totalPriceEth.toFixed(4)
+  
+  // Calculate final price with loyalty discount
+  const finalPriceEth = loyaltyPreview 
+    ? Number(BigInt(loyaltyPreview.wei_due) / BigInt(1e14)) / 10000 // Convert wei to ETH
+    : totalPriceEth
+  const discountEth = loyaltyPreview
+    ? Number(BigInt(loyaltyPreview.wei_discount) / BigInt(1e14)) / 10000
+    : 0
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -124,7 +175,7 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
           Get Tickets
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-[480px] max-h-[90vh] overflow-y-auto">
+      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Buy Tickets</DialogTitle>
           <DialogDescription>
@@ -156,9 +207,6 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
                 <p><strong>Date:</strong> {new Date(event.datetime).toLocaleDateString()}</p>
                 <p><strong>Price per ticket:</strong> {event.ticket_price} ETH</p>
                 <p><strong>Available:</strong> {event.available_tickets} tickets</p>
-                {userAccountIndex !== null && (
-                  <p><strong>Your account:</strong> #{userAccountIndex}</p>
-                )}
               </div>
             </div>
 
@@ -182,21 +230,81 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
               )}
             />
 
+            <FormField
+              control={form.control}
+              name="useLoyaltyPoints"
+              render={({ field }) => (
+                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                  <FormControl>
+                    <Checkbox
+                      checked={field.value}
+                      onCheckedChange={field.onChange}
+                    />
+                  </FormControl>
+                  <div className="space-y-1 leading-none">
+                    <FormLabel>
+                      Use Loyalty Points for Discount
+                    </FormLabel>
+                    <FormDescription>
+                      Redeem your loyalty points for up to 30% off
+                    </FormDescription>
+                  </div>
+                </FormItem>
+              )}
+            />
+
+            {loadingPreview && (
+              <div className="flex items-center justify-center p-4">
+                <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+              </div>
+            )}
+
+            {loyaltyPreview && !loadingPreview && (
+              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-md space-y-2">
+                <p className="text-sm font-semibold text-amber-900">
+                  🎁 Loyalty Discount Applied!
+                </p>
+                <div className="text-xs text-amber-800 space-y-1">
+                  <p>Points to redeem: <strong>{loyaltyPreview.points_to_redeem}</strong></p>
+                  <p>Discount: <strong className="text-green-600">-{discountEth.toFixed(4)} ETH</strong></p>
+                  <p>You pay: <strong>{finalPriceEth.toFixed(4)} ETH</strong></p>
+                </div>
+              </div>
+            )}
+
             <div className="p-3 bg-gray-50 rounded-md">
-              <p className="font-medium">Total: {totalPrice} ETH</p>
+              <p className="font-medium">
+                {loyaltyPreview ? 'Original' : 'Total'}: {totalPriceDisplay} ETH
+              </p>
               <p className="text-sm text-gray-600">
                 {quantity} ticket(s) × {event.ticket_price} ETH each
               </p>
+              {loyaltyPreview && (
+                <div className="mt-2 pt-2 border-t border-gray-200">
+                  <p className="font-bold text-lg text-green-600">
+                    Final Price: {finalPriceEth.toFixed(4)} ETH
+                  </p>
+                  <p className="text-xs text-gray-600">
+                    Saved {discountEth.toFixed(4)} ETH with loyalty points!
+                  </p>
+                </div>
+              )}
             </div>
+
+            {loyaltyPointsAwarded > 0 && (
+              <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-md">
+                <p className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                  🎉 You earned {loyaltyPointsAwarded} loyalty points!
+                </p>
+              </div>
+            )}
 
             <Button
               type="submit"
-              disabled={isLoading || userAccountIndex === null || Number(form.watch("quantity")) > event.available_tickets}
+              disabled={isLoading || Number(form.watch("quantity")) > event.available_tickets}
               className="w-full"
             >
-              {userAccountIndex === null ? "Loading account..." :
-                isLoading ? "Processing..." :
-                  `Buy ${quantity} Ticket${quantity > 1 ? 's' : ''}`}
+              {isLoading ? "Processing..." : `Buy ${quantity} Ticket${quantity > 1 ? 's' : ''}`}
             </Button>
           </form>
         </Form>

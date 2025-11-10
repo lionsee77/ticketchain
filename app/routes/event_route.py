@@ -418,32 +418,99 @@ async def buy_tickets(
         # Calculate total price
         total_price = ticket_price * request.quantity
 
+        # Handle loyalty points redemption if requested
+        loyalty_discount = 0
+        points_redeemed = 0
+        if request.use_loyalty_points:
+            try:
+                # Check if user has approved loyalty system
+                allowance = web3_manager.get_points_allowance(user_wallet_address)
+                points_available = web3_manager.preview_points_available(user_wallet_address, total_price)
+                
+                if points_available > 0:
+                    if allowance < points_available:
+                        raise HTTPException(
+                            status_code=400,
+                            detail=f"Insufficient loyalty points allowance. Please approve LoyaltySystem first."
+                        )
+                    
+                    # Redeem loyalty points for discount
+                    oracle_account = web3_manager.get_user_account_by_index(0)
+                    function_call = web3_manager.loyalty_system.functions.redeemPointsTicket(
+                        web3_manager.w3.to_checksum_address(user_wallet_address),
+                        int(total_price)
+                    )
+                    
+                    txn = web3_manager.build_user_transaction(function_call, oracle_account, gas=200000)
+                    redeem_tx_hash = web3_manager.sign_and_send_user_transaction(txn, oracle_account)
+                    
+                    # Get transaction receipt to parse events
+                    receipt = web3_manager.w3.eth.wait_for_transaction_receipt(redeem_tx_hash)
+                    redeem_events = web3_manager.loyalty_system.events.PointsRedeemedTicket().process_receipt(receipt)
+                    
+                    if redeem_events:
+                        points_redeemed = redeem_events[0]["args"]["pointsBurned"]
+                        loyalty_discount = redeem_events[0]["args"]["weiDiscount"]
+                        
+            except HTTPException:
+                raise
+            except Exception as e:
+                raise HTTPException(status_code=400, detail=f"Failed to redeem loyalty points: {str(e)}")
+
+        # Calculate final price after loyalty discount
+        final_price = total_price - loyalty_discount
+
         # Get user account for this purchase
         user_account_obj = web3_manager.get_user_account(
             user_wallet_address, user_private_key
         )
         user_address = user_account_obj.address
 
-        # Check user has enough ETH
+        # Check user has enough ETH for FULL price (EventManager always charges full price)
         user_balance = web3_manager.get_account_balance(user_address)
         if user_balance < total_price:
             raise HTTPException(
                 status_code=400,
-                detail=f"Insufficient balance. Need {web3_manager.w3.from_wei(total_price, 'ether')} ETH, have {web3_manager.w3.from_wei(user_balance, 'ether')} ETH",
+                detail=f"Insufficient balance. Need {web3_manager.w3.from_wei(total_price, 'ether')} ETH for ticket purchase, have {web3_manager.w3.from_wei(user_balance, 'ether')} ETH. (Loyalty discount will be refunded after purchase)",
             )
 
-        # Use regular buyTickets function - user pays and receives tickets directly
+        # Use regular buyTickets function - user pays FULL PRICE (EventManager requires original price)
         function_call = web3_manager.event_manager.functions.buyTickets(
             request.event_id, request.quantity
         )
 
-        # Build and send the transaction from user account
+        # Build and send the transaction from user account (ALWAYS pay full price to EventManager)
         txn = web3_manager.build_user_transaction(
             function_call, user_account_obj, gas=500000
         )
-        txn["value"] = total_price
+        txn["value"] = total_price  # EventManager expects original price, not discounted price
 
         tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account_obj)
+
+        # If loyalty discount was applied, refund the discount to the user
+        if loyalty_discount > 0:
+            try:
+                # Transfer the loyalty discount back to the user from oracle account
+                oracle_account = web3_manager.get_user_account_by_index(0)
+                
+                # Send refund transaction
+                refund_txn = {
+                    'to': user_address,
+                    'value': loyalty_discount,
+                    'gas': 21000,
+                    'gasPrice': web3_manager.w3.eth.gas_price,
+                    'nonce': web3_manager.w3.eth.get_transaction_count(oracle_account.address),
+                    'chainId': web3_manager.w3.eth.chain_id
+                }
+                
+                signed_refund = oracle_account.sign_transaction(refund_txn)
+                refund_tx_hash = web3_manager.w3.eth.send_raw_transaction(signed_refund.rawTransaction)
+                
+                print(f"✅ Loyalty refund sent: {refund_tx_hash.hex()} - {web3_manager.w3.from_wei(loyalty_discount, 'ether')} ETH")
+                
+            except Exception as e:
+                print(f"⚠️ Warning: Failed to send loyalty discount refund: {str(e)}")
+                # Don't fail the purchase if refund fails
 
         # Award loyalty points after successful ticket purchase
         loyalty_points_awarded = 0
@@ -455,17 +522,32 @@ async def buy_tickets(
             # Log the error but don't fail the ticket purchase
             print(f"Warning: Failed to award loyalty points: {str(e)}")
 
-        return {
+        # Build response with loyalty information
+        response = {
             "success": True,
             "tx_hash": tx_hash.hex(),
             "event_id": request.event_id,
             "quantity": request.quantity,
-            "total_price_wei": total_price,
-            "total_price_eth": web3_manager.w3.from_wei(total_price, "ether"),
+            "original_price_wei": total_price,
+            "original_price_eth": web3_manager.w3.from_wei(total_price, "ether"),
+            "final_price_wei": final_price,
+            "final_price_eth": web3_manager.w3.from_wei(final_price, "ether"),
             "buyer_address": user_address,
             "loyalty_points_awarded": loyalty_points_awarded,
-            "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User {user_address} paid and received NFTs. Awarded {loyalty_points_awarded} loyalty points.",
         }
+
+        # Add loyalty redemption info if points were used
+        if loyalty_discount > 0:
+            response.update({
+                "loyalty_points_redeemed": points_redeemed,
+                "loyalty_discount_wei": loyalty_discount,
+                "loyalty_discount_eth": web3_manager.w3.from_wei(loyalty_discount, "ether"),
+                "message": f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. Paid {web3_manager.w3.from_wei(total_price, 'ether')} ETH to EventManager, then received {web3_manager.w3.from_wei(loyalty_discount, 'ether')} ETH loyalty refund. Net cost: {web3_manager.w3.from_wei(final_price, 'ether')} ETH. Redeemed {points_redeemed} loyalty points. Awarded {loyalty_points_awarded} new loyalty points.",
+            })
+        else:
+            response["message"] = f"Successfully purchased {request.quantity} ticket(s) for event {request.event_id}. User {user_address} paid and received NFTs. Awarded {loyalty_points_awarded} loyalty points."
+
+        return response
 
     except HTTPException:
         raise

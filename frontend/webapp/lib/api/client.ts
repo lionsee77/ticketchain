@@ -18,6 +18,9 @@ if (typeof window !== 'undefined') {
   console.log('NEXT_PUBLIC_API_URL:', process.env.NEXT_PUBLIC_API_URL);
 }
 
+// ========== Type Definitions ==========
+
+// Auth Types
 export interface RegisterRequest {
   username: string;
   email: string;
@@ -36,48 +39,6 @@ export interface AuthResponse {
   token_type: string;
 }
 
-class ApiClient {
-  private baseUrl: string;
-
-  constructor(baseUrl: string = API_BASE_URL) {
-    this.baseUrl = baseUrl;
-  }
-
-  async register(data: RegisterRequest): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseUrl}/auth/register`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Registration failed');
-    }
-
-    return response.json();
-  }
-
-  async login(data: LoginRequest): Promise<AuthResponse> {
-    const response = await fetch(`${this.baseUrl}/auth/login`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-
-    if (!response.ok) {
-      const error = await response.json();
-      throw new Error(error.detail || 'Login failed');
-    }
-
-    return response.json();
-  }
-}
-
 export interface UserProfile {
   id: number;
   username: string;
@@ -91,28 +52,356 @@ export interface UserProfile {
   private_key: string;
 }
 
-export async function getUserProfile(): Promise<UserProfile> {
-  const token = localStorage.getItem('token');
-  
-  if (!token) {
-    throw new Error('No authentication token found');
+// Event Types
+export interface Event {
+  id: number;
+  name: string;
+  venue: string;
+  date: number; // Unix timestamp
+  ticketPrice: string; // in wei
+  totalTickets: number;
+  ticketsSold: number;
+  isActive: boolean;
+  organizer: string;
+}
+
+export interface EventDetails extends Event {
+  description?: string;
+  category?: string;
+}
+
+export interface CreateEventRequest {
+  name: string;
+  venue: string;
+  date: number; // Unix timestamp
+  price: number; // in wei
+  total_tickets: number;
+}
+
+export interface BuyTicketRequest {
+  event_id: number;
+  quantity: number;
+  use_loyalty_points: boolean;
+}
+
+// Ticket Types
+export interface Ticket {
+  ticket_id: number;
+  event_id: number;
+  event_name: string;
+  event_location: string;
+  event_date: string;
+  ticket_price: string; // in wei
+  is_used: boolean;
+  owner_address: string;
+}
+
+export interface TicketDetails extends Ticket {
+  event_venue?: string;
+  purchase_date?: string;
+}
+
+// Marketplace Types
+export interface MarketListing {
+  listing_id?: number; // Optional - in this system, listings are identified by ticket_id
+  ticket_id: number;
+  event_id: number;
+  event_name?: string; // May not be available from backend
+  seller_address: string;
+  price: string; // in wei
+  is_active: boolean;
+  listed_at?: string;
+}
+
+export interface ListTicketRequest {
+  ticket_id: number;
+  price: number; // in wei
+}
+
+export interface BuyListedTicketRequest {
+  ticket_id: number;
+}
+
+// Loyalty Types
+export interface LoyaltyBalance {
+  success: boolean;
+  address: string;
+  balance: string; // Balance as string in wei (with 18 decimals)
+  decimals: number;
+  message: string;
+}
+
+export interface LoyaltyPreview {
+  original_price: string;
+  discount: string;
+  final_price: string;
+  points_to_redeem: number;
+}
+
+// ========== API Client Class ==========
+
+class ApiClient {
+  private baseUrl: string;
+
+  constructor(baseUrl: string = API_BASE_URL) {
+    this.baseUrl = baseUrl;
   }
-  
-  const response = await fetch(`${API_BASE_URL}/auth/profile`, {
-    headers: {
+
+  private getAuthHeaders(): HeadersInit {
+    const token = localStorage.getItem('token');
+    return {
       'Content-Type': 'application/json',
-      'Authorization': `Bearer ${token}`,
-    },
-  });
-
-  if (!response.ok) {
-    if (response.status === 401) {
-      throw new Error('Authentication required');
-    }
-    throw new Error('Failed to fetch user profile');
+      ...(token && { 'Authorization': `Bearer ${token}` }),
+    };
   }
 
-  return response.json();
+  private async handleResponse<T>(response: Response): Promise<T> {
+    if (!response.ok) {
+      const error = await response.json().catch(() => ({ detail: 'Request failed' }));
+      // Handle various error response formats
+      const errorMessage = error.detail || error.message || error.error || JSON.stringify(error);
+      throw new Error(typeof errorMessage === 'string' ? errorMessage : `Request failed with status ${response.status}`);
+    }
+    return response.json();
+  }
+
+  // ========== Authentication Endpoints ==========
+
+  async register(data: RegisterRequest): Promise<AuthResponse> {
+    const response = await fetch(`${this.baseUrl}/auth/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<AuthResponse>(response);
+  }
+
+  async login(data: LoginRequest): Promise<AuthResponse> {
+    const response = await fetch(`${this.baseUrl}/auth/login`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse<AuthResponse>(response);
+  }
+
+  async logout(): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseUrl}/auth/logout`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async getProfile(): Promise<UserProfile> {
+    const response = await fetch(`${this.baseUrl}/auth/profile`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse<UserProfile>(response);
+  }
+
+  async refreshToken(): Promise<{ access_token: string }> {
+    const response = await fetch(`${this.baseUrl}/auth/refresh`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  // ========== Event Endpoints ==========
+
+  async getAllEvents(): Promise<{ events: Event[] }> {
+    const response = await fetch(`${this.baseUrl}/events/all`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async getEventDetails(eventId: number): Promise<EventDetails> {
+    const response = await fetch(`${this.baseUrl}/events/${eventId}/details`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async createEvent(data: CreateEventRequest): Promise<{ event_id: number; message: string }> {
+    const response = await fetch(`${this.baseUrl}/events/create`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(response);
+  }
+
+  async closeEvent(eventId: number): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseUrl}/events/${eventId}/close`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async buyTicket(data: BuyTicketRequest): Promise<{ 
+    success: boolean;
+    message: string; 
+    ticket_ids?: number[];
+    loyalty_points_awarded?: number;
+    total_price_eth?: string;
+  }> {
+    const response = await fetch(`${this.baseUrl}/events/buy`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(response);
+  }
+
+  // ========== Ticket Endpoints ==========
+
+  async getMyTickets(): Promise<{ tickets: Ticket[] }> {
+    const response = await fetch(`${this.baseUrl}/tickets/owned`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async getTicketDetails(ticketId: number): Promise<TicketDetails> {
+    const response = await fetch(`${this.baseUrl}/tickets/${ticketId}`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async checkTicketUsed(ticketId: number): Promise<{ is_used: boolean }> {
+    const response = await fetch(`${this.baseUrl}/tickets/${ticketId}/check-used`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async markTicketAsUsed(ticketId: number): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseUrl}/tickets/${ticketId}/mark-used`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  // ========== Marketplace Endpoints ==========
+
+  async getMarketListings(): Promise<{ listings: MarketListing[] }> {
+    const response = await fetch(`${this.baseUrl}/market/listings`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async getMyListings(): Promise<{ listings: MarketListing[] }> {
+    const response = await fetch(`${this.baseUrl}/market/my-listings`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async listTicket(data: ListTicketRequest): Promise<{ listing_id: number; message: string }> {
+    const response = await fetch(`${this.baseUrl}/market/list`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(response);
+  }
+
+  async delistTicket(ticketId: number): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseUrl}/market/delist`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ ticket_id: ticketId }),
+    });
+    return this.handleResponse(response);
+  }
+
+  async buyListedTicket(data: BuyListedTicketRequest): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseUrl}/market/buy`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(response);
+  }
+
+  async checkMarketApprovalStatus(): Promise<{ is_approved: boolean }> {
+    const response = await fetch(`${this.baseUrl}/market/approval/status`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async approveMarket(): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseUrl}/market/approval/approve`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({}), // Send empty JSON object
+    });
+    return this.handleResponse(response);
+  }
+
+  // ========== Loyalty Endpoints ==========
+
+  async getLoyaltyBalance(): Promise<LoyaltyBalance> {
+    const response = await fetch(`${this.baseUrl}/loyalty/balance`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async getLoyaltyPreview(ticketWei: string): Promise<{
+    success: boolean;
+    address: string;
+    ticket_wei: string;
+    points_applicable: string;
+    wei_discount: string;
+    wei_due: string;
+    discount_percentage: number;
+    message: string;
+    points_to_redeem?: number;
+  }> {
+    const response = await fetch(`${this.baseUrl}/loyalty/preview?ticket_wei=${ticketWei}`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async previewLoyaltyDiscount(price: number, points: number): Promise<LoyaltyPreview> {
+    const response = await fetch(`${this.baseUrl}/loyalty/preview?price=${price}&points=${points}`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async approveLoyaltySystem(): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseUrl}/loyalty/approval/approve`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async checkLoyaltyApprovalStatus(): Promise<{ is_approved: boolean }> {
+    const response = await fetch(`${this.baseUrl}/loyalty/approval/status`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async redeemLoyaltyPoints(ticketId: number, points: number): Promise<{ message: string }> {
+    const response = await fetch(`${this.baseUrl}/loyalty/redeem`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ ticket_id: ticketId, points }),
+    });
+    return this.handleResponse(response);
+  }
 }
 
 export const apiClient = new ApiClient();
