@@ -2,46 +2,15 @@
 
 import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
-import { getListings, type Listing } from "@/lib/api/market"
+import { apiClient, type MarketListing } from "@/lib/api/client"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent } from "@/components/ui/card"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Skeleton } from "@/components/ui/skeleton"
-import { Calendar, MapPin, DollarSign, Search, Filter, ShoppingCart, Plus } from "lucide-react"
+import { Search, Filter, ShoppingCart, Plus } from "lucide-react"
 import { SellTicketsDialog } from "@/components/marketplace/sell-tickets-dialog"
 import { useAuth } from "@/hooks/useAuth"
-
-// Mock listings for design purposes
-const mockListings: Listing[] = [
-  {
-    id: "1",
-    event_id: "1",
-    event_name: "Taylor Swift | The Eras Tour",
-    ticket_id: "ticket_1",
-    seller_address: "0x1234...5678",
-    price: "150.00",
-    status: "active"
-  },
-  {
-    id: "2",
-    event_id: "2", 
-    event_name: "Hamilton",
-    ticket_id: "ticket_2",
-    seller_address: "0x5678...9abc",
-    price: "200.00",
-    status: "active"
-  },
-  {
-    id: "3",
-    event_id: "3",
-    event_name: "NBA Finals Game 1", 
-    ticket_id: "ticket_3",
-    seller_address: "0x9abc...def0",
-    price: "450.00",
-    status: "active"
-  }
-]
+import { ListingCard } from "@/components/marketplace/listing-card"
 
 function ListingsGridSkeleton() {
   return (
@@ -65,11 +34,10 @@ function ListingsGridSkeleton() {
 }
 
 export default function MarketplacePage() {
-  const [listings, setListings] = useState<Listing[]>([])
+  const [listings, setListings] = useState<MarketListing[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState("")
-  const [filteredListings, setFilteredListings] = useState<Listing[]>([])
+  const [filteredListings, setFilteredListings] = useState<MarketListing[]>([])
   const [sellDialogOpen, setSellDialogOpen] = useState(false)
   
   const router = useRouter()
@@ -78,29 +46,27 @@ export default function MarketplacePage() {
   const fetchListings = async () => {
     try {
       setLoading(true)
-      const token = localStorage.getItem('token')
       
-      if (token) {
-        try {
-          const listingsData = await getListings()
-          setListings(listingsData)
-          setError(null)
-        } catch (apiError) {
-          console.warn('API fetch failed, falling back to mock data:', apiError)
-          // Fall back to mock data if API is unavailable
-          setListings(mockListings)
-          setError(null) // Don't show error to user when fallback works
-        }
-      } else {
-        // Use mock data for demo when not authenticated
-        setListings(mockListings)
-        setError(null)
+      console.log('🔄 Fetching marketplace listings...')
+      const result = await apiClient.getMarketListings()
+      console.log('📦 Received listings:', result.listings)
+      console.log('📊 Total listings:', result.listings.length)
+      
+      // Check for duplicates
+      const ticketIds = result.listings.map(l => l.ticket_id)
+      const uniqueIds = new Set(ticketIds)
+      if (ticketIds.length !== uniqueIds.size) {
+        console.warn('⚠️ DUPLICATE TICKET IDs DETECTED!', {
+          total: ticketIds.length,
+          unique: uniqueIds.size,
+          ticketIds
+        })
       }
+      
+      setListings(result.listings)
     } catch (err) {
       console.error('Error fetching listings:', err)
-      setError(err instanceof Error ? err.message : 'Failed to fetch listings')
-      // Always fall back to mock data on any error to prevent crashes
-      setListings(mockListings || [])
+      setListings([])
     } finally {
       setLoading(false)
     }
@@ -116,7 +82,7 @@ export default function MarketplacePage() {
     
     if (searchQuery.trim()) {
       const filtered = listingsArray.filter(listing =>
-        listing.event_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        (listing.event_name?.toLowerCase().includes(searchQuery.toLowerCase()) || false) ||
         listing.seller_address.toLowerCase().includes(searchQuery.toLowerCase())
       )
       setFilteredListings(filtered)
@@ -125,20 +91,12 @@ export default function MarketplacePage() {
     }
   }, [listings, searchQuery])
 
-  const handleListingClick = (listingId: string) => {
-    router.push(`/marketplace/${listingId}`)
-  }
-
   const handleSellTicket = () => {
     if (!isAuthenticated) {
       router.push('/register')
     } else {
       setSellDialogOpen(true)
     }
-  }
-
-  const formatAddress = (address: string) => {
-    return `${address.slice(0, 6)}...${address.slice(-4)}`
   }
 
   return (
@@ -183,7 +141,7 @@ export default function MarketplacePage() {
 
           {searchQuery && (
             <p className="text-gray-600 mb-4">
-              {filteredListings.length} listings found for "{searchQuery}"
+              {filteredListings.length} listings found for &ldquo;{searchQuery}&rdquo;
             </p>
           )}
         </div>
@@ -222,62 +180,10 @@ export default function MarketplacePage() {
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
             {Array.isArray(filteredListings) && filteredListings.map((listing) => (
-              <Card 
-                key={listing.id}
-                className="group cursor-pointer overflow-hidden border-0 shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
-                onClick={() => handleListingClick(listing.id)}
-              >
-                <div className="relative">
-                  <div className="h-32 bg-gradient-to-br from-green-400 via-blue-500 to-purple-500 flex items-center justify-center">
-                    <div className="text-center text-white">
-                      <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-80" />
-                      <p className="text-xs opacity-90">Resale Ticket</p>
-                    </div>
-                  </div>
-                  <div className="absolute top-4 left-4">
-                    <Badge 
-                      variant="secondary"
-                      className="bg-green-100 text-green-800"
-                    >
-                      {listing.status === 'active' ? 'Available' : listing.status}
-                    </Badge>
-                  </div>
-                </div>
-                
-                <CardContent className="p-6">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-blue-600 transition-colors line-clamp-2">
-                    {listing.event_name}
-                  </h3>
-                  
-                  <div className="space-y-2 text-gray-600 mb-4">
-                    <div className="flex items-center gap-2">
-                      <DollarSign className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-sm">Price: ${listing.price}</span>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <MapPin className="h-4 w-4 flex-shrink-0" />
-                      <span className="text-sm">Seller: {formatAddress(listing.seller_address)}</span>
-                    </div>
-                  </div>
-                  
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <span className="text-xs text-gray-500 block">Resale Price</span>
-                      <span className="text-xl font-semibold text-gray-900">
-                        ${listing.price}
-                      </span>
-                    </div>
-                    <Button 
-                      variant="outline" 
-                      size="sm"
-                      className="group-hover:bg-green-600 group-hover:text-white group-hover:border-green-600 transition-colors"
-                    >
-                      <ShoppingCart className="h-4 w-4 mr-1" />
-                      Buy Now
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
+              <ListingCard 
+                key={listing.ticket_id}
+                listing={listing}
+              />
             ))}
           </div>
         )}

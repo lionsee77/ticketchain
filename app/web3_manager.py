@@ -317,10 +317,12 @@ class Web3Manager:
         """Check if user has approved ResaleMarket to transfer their tickets"""
         try:
             resale_market_address = self.market_manager.address
+            # Convert to checksum address for Web3.py compatibility
+            wallet_address_checksum = self.w3.to_checksum_address(wallet_address)
 
             # Check if user has approved ResaleMarket for all their tickets
             is_approved = self.ticket_nft.functions.isApprovedForAll(
-                wallet_address, resale_market_address
+                wallet_address_checksum, resale_market_address
             ).call()
 
             return is_approved

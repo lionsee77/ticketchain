@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import { Button } from "@/components/ui/button"
-import type { Listing } from "@/lib/api/market"
-import { buyTicket } from "@/lib/api/market"
+import { apiClient } from "@/lib/api/client"
+import type { MarketListing } from "@/lib/api/client"
 import {
   Card,
   CardContent,
@@ -14,22 +14,35 @@ import {
 import { useRouter } from "next/navigation"
 
 interface ListingCardProps {
-  listing: Listing
+  listing: MarketListing
 }
 
 export function ListingCard({ listing }: ListingCardProps) {
   const router = useRouter()
   const [isLoading, setIsLoading] = React.useState(false)
   const [error, setError] = React.useState<string | null>(null)
+  const [success, setSuccess] = React.useState<string | null>(null)
 
   const handleBuy = async () => {
     try {
       setIsLoading(true)
       setError(null)
-      await buyTicket(listing.id)
-      router.refresh()
+      setSuccess(null)
+      
+      // Call the API to buy the ticket - backend uses ticket_id to identify listings
+      const result = await apiClient.buyListedTicket({
+        ticket_id: listing.ticket_id,
+      })
+      
+      setSuccess(result.message || "Ticket purchased successfully!")
+      
+      // Refresh the page to show updated listings after a short delay
+      setTimeout(() => {
+        router.refresh()
+      }, 1500)
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to buy ticket")
+      const errorMessage = err instanceof Error ? err.message : "Failed to buy ticket"
+      setError(errorMessage)
     } finally {
       setIsLoading(false)
     }
@@ -38,9 +51,9 @@ export function ListingCard({ listing }: ListingCardProps) {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>{listing.event_name}</CardTitle>
+        <CardTitle>{listing.event_name || `Event #${listing.event_id}`}</CardTitle>
         <CardDescription>
-          Ticket #{listing.ticket_id} • {listing.price} ETH
+          Ticket #{listing.ticket_id} • {(parseFloat(listing.price) / 1e18).toFixed(4)} ETH
         </CardDescription>
       </CardHeader>
       <CardContent>
@@ -50,7 +63,7 @@ export function ListingCard({ listing }: ListingCardProps) {
           </div>
           <Button
             onClick={handleBuy}
-            disabled={isLoading || listing.status !== "active"}
+            disabled={isLoading || !listing.is_active}
             variant="outline"
           >
             {isLoading ? "Buying..." : "Buy Now"}
@@ -58,6 +71,9 @@ export function ListingCard({ listing }: ListingCardProps) {
         </div>
         {error && (
           <p className="text-sm text-destructive mt-2">{error}</p>
+        )}
+        {success && (
+          <p className="text-sm text-green-600 mt-2">{success}</p>
         )}
       </CardContent>
     </Card>

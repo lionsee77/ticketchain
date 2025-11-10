@@ -4,7 +4,8 @@ from .queue_manager import (
     is_allowed_purchased,
     join_queue,
     get_position,
-    get_queue_stats)
+    get_queue_stats,
+    complete_purchase)
 from pydantic import BaseModel
 
 from web3_manager import web3_manager as wm
@@ -121,11 +122,11 @@ async def can_purchase(user_address: str):
     }
 
 
-# @router.post("/complete/{user_address}")
-# async def complete(user_address: str):
-#     """Mark purchase as complete, remove from queue"""
-#     result = complete_purchase(user_address.lower())
-#     return result
+@router.post("/complete/{user_address}")
+async def complete(user_address: str):
+    """Mark purchase as complete, remove from queue"""
+    result = complete_purchase(user_address.lower())
+    return result
 
 
 @router.get("/stats")
@@ -134,7 +135,10 @@ async def stats():
     return get_queue_stats()
 
 
+class LeaveQueueRequest(BaseModel):
+    user_address: str
+
 @router.post("/leave")
-def leave(user_address: str):
+def leave(request: LeaveQueueRequest):
     """Leave the queue"""
-    return leave_queue(user_address.lower())
+    return leave_queue(request.user_address.lower())

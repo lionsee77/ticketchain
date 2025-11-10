@@ -116,6 +116,29 @@ async def register_user(
         private_key=user_data.private_key,
     )
 
+    # Auto-approve LoyaltySystem for seamless loyalty points redemption
+    try:
+        from web3_manager import web3_manager
+        
+        # Get user account for approval transaction
+        user_account = web3_manager.get_user_account(user_data.wallet_address, user_data.private_key)
+        
+        # Approve LoyaltySystem to spend loyalty points (max allowance)
+        max_allowance = 2**256 - 1  # Max uint256
+        function_call = web3_manager.loyalty_point.functions.approve(
+            web3_manager.w3.to_checksum_address(web3_manager.loyalty_system.address),
+            max_allowance
+        )
+        
+        txn = web3_manager.build_user_transaction(function_call, user_account, gas=100000)
+        tx_hash = web3_manager.sign_and_send_user_transaction(txn, user_account)
+        
+        print(f"✅ Auto-approved LoyaltySystem for user {user_data.username}: {tx_hash.hex()}")
+        
+    except Exception as e:
+        # Don't fail registration if loyalty approval fails
+        print(f"⚠️ Warning: Failed to auto-approve LoyaltySystem for {user_data.username}: {str(e)}")
+
     # Create session
     user_agent, ip_address = get_client_info(request)
     session_data = auth_service.create_session(

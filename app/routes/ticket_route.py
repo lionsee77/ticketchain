@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Depends
 from typing import List, Dict, Any
 from dependencies.role_deps import require_authenticated_user
 from web3_manager import web3_manager
+from web3 import Web3
 
 router = APIRouter(prefix="/tickets", tags=["tickets"])
 
@@ -76,9 +77,11 @@ async def get_owned_tickets(user_info: dict = Depends(require_authenticated_user
     """Get all tickets owned by the authenticated user"""
     try:
         user_address = user_info["wallet_address"]
+        # Convert to checksum address for Web3.py compatibility
+        user_address_checksum = Web3.to_checksum_address(user_address)
 
         # Get number of tickets owned by user
-        balance = web3_manager.ticket_nft.functions.balanceOf(user_address).call()
+        balance = web3_manager.ticket_nft.functions.balanceOf(user_address_checksum).call()
 
         if balance == 0:
             return {
@@ -94,7 +97,7 @@ async def get_owned_tickets(user_info: dict = Depends(require_authenticated_user
         # Use efficient enumeration to get all tickets owned by user
         for i in range(balance):
             ticket_id = web3_manager.ticket_nft.functions.tokenOfOwnerByIndex(
-                user_address, i
+                user_address_checksum, i
             ).call()
 
             # Get ticket details
@@ -108,11 +111,9 @@ async def get_owned_tickets(user_info: dict = Depends(require_authenticated_user
                 "ticket_id": ticket_id,
                 "event_id": event_id,
                 "event_name": event_data[1],  # name
-                "event_location": event_data[
-                    0
-                ],  # organiser (showing as location for now)
-                "event_date": event_data[2],  # venue (showing as date for now)
-                "ticket_price": event_data[4],  # date (showing as price for now)
+                "event_location": event_data[2],  # venue
+                "event_date": str(event_data[3]),  # date (Unix timestamp)
+                "ticket_price": str(event_data[4]),  # ticketPrice in wei
                 "is_used": is_used,
                 "owner_address": user_address,
             }
