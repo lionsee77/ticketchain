@@ -361,6 +361,8 @@ async def get_event_details(event_id: int):
             status_code=500, detail=f"Failed to get event details: {str(e)}"
         )
 
+from ticket_queue.queue_manager import is_allowed_purchased
+from ticket_queue.queue_manager import leave_queue
 
 @router.post("/buy", summary="Buy fresh tickets from event organiser")
 async def buy_tickets(
@@ -369,8 +371,18 @@ async def buy_tickets(
         require_authenticated_user
     ),  # Authentication required, any role
 ):
-    """Buy tickets - requires authentication but any role is allowed"""
+    """Buy tickets - requires authentication and active in queue but any role is allowed"""
+        
     try:
+        user_address = user_info["wallet_address"]
+        user_private_key = user_info["private_key"]
+        if not is_allowed_purchased(user_address.lower()):
+            raise HTTPException(status_code=403, detail="Please wait in the queue, not your turn yet")
+
+        print("LEAVING QUEUE AFTER PURCHASE")
+
+        leave_result = leave_queue(user_address.lower())
+
         if not web3_manager.is_connected():
             raise HTTPException(
                 status_code=503, detail="Blockchain connection unavailable"
@@ -383,9 +395,6 @@ async def buy_tickets(
             raise HTTPException(
                 status_code=400, detail="Quantity must be greater than 0"
             )
-
-        user_wallet_address = user_info["wallet_address"]
-        user_private_key = user_info["private_key"]
 
         # Get event details to calculate total price
         try:
@@ -462,7 +471,7 @@ async def buy_tickets(
 
         # Get user account for this purchase
         user_account_obj = web3_manager.get_user_account(
-            user_wallet_address, user_private_key
+            user_address, user_private_key
         )
         user_address = user_account_obj.address
 
@@ -528,6 +537,7 @@ async def buy_tickets(
         # Build response with loyalty information
         response = {
             "success": True,
+            "leave_result": leave_result,
             "tx_hash": tx_hash.hex(),
             "event_id": request.event_id,
             "quantity": request.quantity,

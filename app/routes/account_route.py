@@ -9,7 +9,7 @@ async def get_test_accounts():
     try:
         accounts_info = []
         for i in range(10):  # Show first 10 accounts
-            address = web3_manager.get_user_address(i)
+            address = web3_manager.get_user_address_by_index(i)
             balance = web3_manager.get_account_balance(address)
             balance_eth = web3_manager.w3.from_wei(balance, "ether")
 

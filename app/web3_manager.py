@@ -283,6 +283,35 @@ class Web3Manager:
         if points_awarded_event:
             return points_awarded_event[0]["args"]["pointsMinted"]
         return 0
+    
+    def redeem_loyalty_points_queue(self, to_address: str, point_redeemed: int) -> int:
+        """Redeem loyalty points to a user based on amount requested."""
+        if not hasattr(self, "loyalty_system"):
+            raise RuntimeError("LoyaltySystem contract not initialised")
+
+        # Use the oracle account to redeen points 
+        oracle_account = self.get_user_account_by_index(
+            0
+        )  # Assuming oracle is account 0
+
+        function_call = self.loyalty_system.functions.redeemPointsQueue(
+            self.w3.to_checksum_address(to_address), int(point_redeemed)
+        )
+
+        # Build and send the transaction from oracle account
+        txn = self.build_user_transaction(function_call, oracle_account, gas=200000)
+        tx_hash = self.sign_and_send_user_transaction(txn, oracle_account)
+
+        # Get the transaction receipt to check if points were redeemed
+        receipt = self.w3.eth.wait_for_transaction_receipt(tx_hash)
+
+        # Parse the PointsRedeemedQueue event to get the actual points burned
+        points_redeem_queue_event = (
+            self.loyalty_system.events.PointsRedeemedQueue().process_receipt(receipt)
+        )
+        if points_redeem_queue_event:
+            return points_redeem_queue_event[0]["args"]["pointsBurned"]
+        return 0
 
     def check_resale_market_approval(self, wallet_address: str) -> bool:
         """Check if user has approved ResaleMarket to transfer their tickets"""
