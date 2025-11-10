@@ -25,8 +25,9 @@ import {
 } from "@/components/ui/form"
 import { Input } from "@/components/ui/input"
 import { type Event } from "@/lib/api/events"
-import { apiClient } from "@/lib/api/client"
-import { Loader2 } from "lucide-react"
+import { apiClient, type QueueStatus } from "@/lib/api/client"
+import { Loader2, Users } from "lucide-react"
+import { JoinQueueDialog, QueueStatusCard } from "@/components/queue"
 
 const formSchema = z.object({
   quantity: z.string().min(1, {
@@ -57,6 +58,13 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
   const [loyaltyPointsAwarded, setLoyaltyPointsAwarded] = React.useState<number>(0)
   const [loyaltyPreview, setLoyaltyPreview] = React.useState<LoyaltyPreview | null>(null)
   const [loadingPreview, setLoadingPreview] = React.useState(false)
+  
+  // Queue-related state
+  const [userAddress, setUserAddress] = React.useState<string>("")
+  const [queueStatus, setQueueStatus] = React.useState<QueueStatus | null>(null)
+  const [checkingQueue, setCheckingQueue] = React.useState(false)
+  const [showJoinQueue, setShowJoinQueue] = React.useState(false)
+  const [inQueue, setInQueue] = React.useState(false)
 
   const form = useForm<z.infer<typeof formSchema>>({
     resolver: zodResolver(formSchema),
@@ -69,6 +77,64 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
   // Watch for changes to fetch loyalty preview
   const useLoyaltyPoints = form.watch("useLoyaltyPoints")
   const quantity = Number(form.watch("quantity")) || 1
+
+  // Get user profile and check queue status when dialog opens
+  React.useEffect(() => {
+    const checkQueueStatusAndUser = async () => {
+      if (!open) return
+      
+      try {
+        setCheckingQueue(true)
+        setError(null)
+
+        // Get user profile for wallet address
+        const profile = await apiClient.getProfile()
+        setUserAddress(profile.wallet_address)
+
+        // Check queue status
+        try {
+          const status = await apiClient.getQueuePosition(profile.wallet_address)
+          setQueueStatus(status)
+          setInQueue(status.queue_position > 0)
+        } catch {
+          // User not in queue - this is expected
+          setQueueStatus(null)
+          setInQueue(false)
+        }
+      } catch (err) {
+        console.error("Failed to check queue status:", err)
+        setError(err instanceof Error ? err.message : "Failed to check queue status")
+      } finally {
+        setCheckingQueue(false)
+      }
+    }
+
+    checkQueueStatusAndUser()
+  }, [open])
+
+  // Queue management functions
+  const handleQueueJoined = async () => {
+    // Refresh queue status after joining
+    try {
+      const status = await apiClient.getQueuePosition(userAddress)
+      setQueueStatus(status)
+      setInQueue(true)
+    } catch (err) {
+      console.error("Failed to refresh queue status:", err)
+    }
+  }
+
+  const handleLeaveQueue = async () => {
+    setInQueue(false)
+    setQueueStatus(null)
+  }
+
+  const handleCanPurchase = () => {
+    // Called when user can purchase - refresh their queue status
+    if (userAddress) {
+      apiClient.getQueuePosition(userAddress).then(setQueueStatus)
+    }
+  }
 
   // Fetch loyalty preview when loyalty checkbox is checked
   React.useEffect(() => {
@@ -164,40 +230,107 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
     ? Number(BigInt(loyaltyPreview.wei_discount) / BigInt(1e14)) / 10000
     : 0
 
+  // Determine what to show based on queue status
+  const canPurchase = queueStatus?.can_purchase === 1
+  const needsToJoinQueue = !inQueue && !checkingQueue
+
   return (
-    <Dialog open={open} onOpenChange={setOpen}>
-      <DialogTrigger asChild>
-        <Button
-          variant="outline"
-          size="sm"
-          className="group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-colors"
-        >
-          Get Tickets
-        </Button>
-      </DialogTrigger>
-      <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader>
-          <DialogTitle>Buy Tickets</DialogTitle>
-          <DialogDescription>
-            Purchase tickets for {event.name}
-          </DialogDescription>
-        </DialogHeader>
+    <>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogTrigger asChild>
+          <Button
+            variant="outline"
+            size="sm"
+            className="group-hover:bg-blue-600 group-hover:text-white group-hover:border-blue-600 transition-colors"
+          >
+            Get Tickets
+          </Button>
+        </DialogTrigger>
+        <DialogContent className="sm:max-w-[520px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {inQueue && <Users className="h-5 w-5" />}
+              {needsToJoinQueue ? "Join Queue to Buy Tickets" : "Buy Tickets"}
+            </DialogTitle>
+            <DialogDescription>
+              {needsToJoinQueue 
+                ? `Join the queue for ${event.name} to purchase tickets`
+                : `Purchase tickets for ${event.name}`
+              }
+            </DialogDescription>
+          </DialogHeader>
 
-        {success && (
-          <div className="p-3 bg-green-50 border border-green-200 text-green-800 rounded-md text-xs break-all overflow-hidden max-w-full">
-            <div className="font-medium mb-1">✅ Purchase Successful!</div>
-            <div className="opacity-80">{success}</div>
+        {/* Loading state while checking queue */}
+        {checkingQueue && (
+          <div className="flex items-center justify-center p-6">
+            <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
+            <span className="text-gray-600">Checking queue status...</span>
           </div>
         )}
 
-        {error && (
-          <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-xs break-all overflow-hidden max-w-full">
-            <div className="font-medium mb-1">❌ Error</div>
-            <div className="opacity-80">{error}</div>
-          </div>
-        )}
+        {/* Show different content based on queue status */}
+        {!checkingQueue && (
+          <>
+            {success && (
+              <div className="p-3 bg-green-50 border border-green-200 text-green-800 rounded-md text-xs break-all overflow-hidden max-w-full">
+                <div className="font-medium mb-1">✅ Purchase Successful!</div>
+                <div className="opacity-80">{success}</div>
+              </div>
+            )}
 
-        <Form {...form}>
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-xs break-all overflow-hidden max-w-full">
+                <div className="font-medium mb-1">❌ Error</div>
+                <div className="opacity-80">{error}</div>
+              </div>
+            )}
+
+            {/* Show join queue button if not in queue */}
+            {needsToJoinQueue && (
+              <div className="space-y-4">
+                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                  <div className="flex items-center gap-2 text-blue-800 mb-2">
+                    <Users className="h-4 w-4" />
+                    <span className="font-medium">Queue Required</span>
+                  </div>
+                  <p className="text-sm text-blue-700 mb-3">
+                    To ensure fair access, you need to join the queue before purchasing tickets. 
+                    You can use loyalty points for a better position!
+                  </p>
+                  <Button
+                    onClick={() => setShowJoinQueue(true)}
+                    className="w-full"
+                  >
+                    Join Queue
+                  </Button>
+                </div>
+              </div>
+            )}
+
+            {/* Show queue status if in queue but can't purchase yet */}
+            {inQueue && !canPurchase && (
+              <div className="space-y-4">
+                <QueueStatusCard
+                  userAddress={userAddress}
+                  eventName={event.name}
+                  onLeaveQueue={handleLeaveQueue}
+                  onCanPurchase={handleCanPurchase}
+                />
+              </div>
+            )}
+
+            {/* Show purchase form if in queue and can purchase */}
+            {inQueue && canPurchase && (
+              <div className="space-y-4">
+                <QueueStatusCard
+                  userAddress={userAddress}
+                  eventName={event.name}
+                  onLeaveQueue={handleLeaveQueue}
+                  onCanPurchase={handleCanPurchase}
+                />
+        
+                {/* Purchase form */}
+                <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             <div className="space-y-2">
               <h3 className="font-medium">Event Details</h3>
@@ -299,16 +432,31 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
               </div>
             )}
 
-            <Button
-              type="submit"
-              disabled={isLoading || Number(form.watch("quantity")) > event.available_tickets}
-              className="w-full"
-            >
-              {isLoading ? "Processing..." : `Buy ${quantity} Ticket${quantity > 1 ? 's' : ''}`}
-            </Button>
-          </form>
-        </Form>
-      </DialogContent>
-    </Dialog>
+                    <Button
+                      type="submit"
+                      disabled={isLoading || Number(form.watch("quantity")) > event.available_tickets}
+                      className="w-full"
+                    >
+                      {isLoading ? "Processing..." : `Buy ${quantity} Ticket${quantity > 1 ? 's' : ''}`}
+                    </Button>
+                  </form>
+                </Form>
+              </div>
+            )}
+          </>
+        )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Join Queue Dialog */}
+      <JoinQueueDialog
+        open={showJoinQueue}
+        onOpenChange={setShowJoinQueue}
+        eventId={Number(event.id)}
+        eventName={event.name}
+        userAddress={userAddress}
+        onQueueJoined={handleQueueJoined}
+      />
+    </>
   )
 }

@@ -57,14 +57,14 @@ def activate_next_users() -> int:
 
 
 
-# def complete_purchase(user_address: str) -> Dict:
-#     redis_client.zrem(QUEUE_KEY, user_address)
-#     redis_client.srem(ACTIVE_KEY, user_address)
+def complete_purchase(user_address: str) -> Dict:
+    redis_client.zrem(QUEUE_KEY, user_address)
+    redis_client.srem(ACTIVE_KEY, user_address)
     
-#     # Activate next user
-#     activate_next_users()
+    # Activate next user
+    activate_next_users()
     
-#     return {"status": "completed", "user_address": user_address}
+    return {"status": "completed", "user_address": user_address}
 
 
 def leave_queue(user_address: str) -> Dict:

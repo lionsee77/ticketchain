@@ -433,8 +433,8 @@ async def buy_tickets(
         if request.use_loyalty_points:
             try:
                 # Check if user has approved loyalty system
-                allowance = web3_manager.get_points_allowance(user_wallet_address)
-                points_available = web3_manager.preview_points_available(user_wallet_address, total_price)
+                allowance = web3_manager.get_points_allowance(user_address)
+                points_available = web3_manager.preview_points_available(user_address, total_price)
                 
                 if points_available > 0:
                     if allowance < points_available:
@@ -446,7 +446,7 @@ async def buy_tickets(
                     # Redeem loyalty points for discount
                     oracle_account = web3_manager.get_user_account_by_index(0)
                     function_call = web3_manager.loyalty_system.functions.redeemPointsTicket(
-                        web3_manager.w3.to_checksum_address(user_wallet_address),
+                        web3_manager.w3.to_checksum_address(user_address),
                         int(total_price)
                     )
                     

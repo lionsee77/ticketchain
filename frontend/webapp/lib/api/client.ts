@@ -138,6 +138,33 @@ export interface LoyaltyPreview {
   points_to_redeem: number;
 }
 
+// Queue Types
+export interface QueueStatus {
+  user_address: string;
+  queue_position: number;
+  can_purchase: number; // 1 if can purchase, 0 if not
+}
+
+export interface QueueStats {
+  queue_size: number;
+  active_buyers: number;
+  available_slots: number;
+}
+
+export interface JoinQueueRequest {
+  user_address: string;
+  points_amount: number;
+  user_account_index?: number;
+}
+
+export interface JoinQueueResponse {
+  success: boolean;
+  user_address: string;
+  queue_position: number;
+  points_redeemed: number;
+  can_purchase: number;
+}
+
 // ========== API Client Class ==========
 
 class ApiClient {
@@ -399,6 +426,55 @@ class ApiClient {
       method: 'POST',
       headers: this.getAuthHeaders(),
       body: JSON.stringify({ ticket_id: ticketId, points }),
+    });
+    return this.handleResponse(response);
+  }
+
+  // ========== Queue Endpoints ==========
+
+  async joinQueue(data: JoinQueueRequest): Promise<JoinQueueResponse> {
+    const response = await fetch(`${this.baseUrl}/queue/join`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify(data),
+    });
+    return this.handleResponse(response);
+  }
+
+  async getQueuePosition(userAddress: string): Promise<QueueStatus> {
+    const response = await fetch(`${this.baseUrl}/queue/position/${userAddress}`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async canPurchase(userAddress: string): Promise<{ user_address: string; can_purchase: number }> {
+    const response = await fetch(`${this.baseUrl}/queue/can-purchase/${userAddress}`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async leaveQueue(userAddress: string): Promise<{ status: string; user_address: string; was_in_queue: boolean }> {
+    const response = await fetch(`${this.baseUrl}/queue/leave`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
+      body: JSON.stringify({ user_address: userAddress }),
+    });
+    return this.handleResponse(response);
+  }
+
+  async getQueueStats(): Promise<QueueStats> {
+    const response = await fetch(`${this.baseUrl}/queue/stats`, {
+      headers: this.getAuthHeaders(),
+    });
+    return this.handleResponse(response);
+  }
+
+  async completeQueuePurchase(userAddress: string): Promise<{ status: string; user_address: string }> {
+    const response = await fetch(`${this.baseUrl}/queue/complete/${userAddress}`, {
+      method: 'POST',
+      headers: this.getAuthHeaders(),
     });
     return this.handleResponse(response);
   }
