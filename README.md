@@ -13,6 +13,7 @@ A blockchain-based ticket management system built with FastAPI and Ethereum smar
    cd ticketchain
    docker compose up --build
    ```
+![TicketChain Screenshot](./assets/readme.png)
 
 2. **Access the services:**
 
