@@ -746,10 +746,10 @@ describe("EventManager", function () {
           await eventManager.canSwapTickets(ticketId1, ticketId4)
         ).to.equal(false);
 
-        // Same day tickets - should be valid (though pointless)
+        // Same day tickets - should be invalid (must be different sub-events)
         expect(
           await eventManager.canSwapTickets(ticketId1, ticketId2)
-        ).to.equal(true);
+        ).to.equal(false);
       });
 
       it("Should perform successful ticket swap with approvals", async function () {
