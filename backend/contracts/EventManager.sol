@@ -95,6 +95,7 @@ contract EventManager {
     address public ticketNFTAddress; // Address of the TicketNFT contract
     address public loyaltySystemAddress; // Address of the LoyaltySystem contract
     address public oracle; // Address of the oracle
+    address public owner; // Contract owner
 
     event EventCreated(uint256 eventId, string name, address organiser);
     event MultiDayEventCreated(
@@ -122,13 +123,26 @@ contract EventManager {
     );
     event EventClosed(uint256 eventId);
 
+    // Constructor to set the contract owner
+    constructor() {
+        owner = msg.sender;
+    }
+
+    // Modifier to restrict access to owner only
+    modifier onlyOwner() {
+        require(owner == msg.sender, "Not the owner");
+        _;
+    }
+
     // Set the TicketNFT contract address
-    function setTicketNFTAddress(address _ticketNFTAddress) public {
+    function setTicketNFTAddress(address _ticketNFTAddress) public onlyOwner {
         ticketNFTAddress = _ticketNFTAddress;
     }
 
     // Set the LoyaltySystem contract address
-    function setLoyaltySystemAddress(address _loyaltySystemAddress) public {
+    function setLoyaltySystemAddress(
+        address _loyaltySystemAddress
+    ) public onlyOwner {
         loyaltySystemAddress = _loyaltySystemAddress;
     }
 
@@ -272,6 +286,41 @@ contract EventManager {
         }
 
         emit SubEventTicketsPurchased(subEventId, msg.sender, quantity);
+    }
+
+    // Buy sub-event tickets with loyalty discount (oracle only)
+    function buySubEventTicketsWithDiscount(
+        uint256 subEventId,
+        uint256 quantity,
+        address recipient,
+        uint256 fullPrice
+    ) public payable oracleOnly {
+        SubEvent storage subEvent = subEvents[subEventId];
+        require(subEvent.id != 0, "Sub-event does not exist");
+
+        Event storage parentEvent = events[subEvent.parentEventId];
+        require(parentEvent.isActive, "Parent event is not active");
+        require(quantity > 0, "Invalid ticket quantity");
+        require(
+            subEvent.ticketsSold + quantity <= subEvent.totalTickets,
+            "Not enough tickets available for this day"
+        );
+        require(
+            fullPrice == parentEvent.ticketPrice * quantity,
+            "Invalid full price"
+        );
+        // msg.value should be less than fullPrice due to discount
+
+        subEvent.ticketsSold += quantity;
+        parentEvent.ticketsSold += quantity;
+
+        // Mint tickets to the recipient (using sub-event ID)
+        mintSubEventTickets(parentEvent.id, subEventId, quantity, recipient);
+
+        // DO NOT award loyalty points when discount is used
+        // This prevents earning points when points were spent for discount
+
+        emit SubEventTicketsPurchased(subEventId, recipient, quantity);
     }
 
     // Swap tickets between two users for different days of the same event
@@ -563,8 +612,14 @@ contract EventManager {
         ticketNFT.markAsUsed(ticketId);
     }
 
-    function setOracle(address _oracle) public {
+    function setOracle(address _oracle) public onlyOwner {
         oracle = _oracle;
+    }
+
+    // Transfer ownership to a new owner
+    function transferOwnership(address newOwner) public onlyOwner {
+        require(newOwner != address(0), "New owner cannot be zero address");
+        owner = newOwner;
     }
 
     // Toggle swappable status for a sub-event (only oracle)
