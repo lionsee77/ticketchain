@@ -122,3 +122,34 @@ For local development without Docker, see individual README files:
 ---
 
 **Note:** The Docker setup uses Hardhat's test accounts for development.
+
+---
+
+## CI/CD Pipeline
+
+TicketChain implements a robust CI/CD workflow to ensure code quality and reliability:
+
+### **Automated Testing**
+- **Comprehensive test suite** covering authentication, event management, loyalty system, resale market, and queue management
+- **Smart contract tests** using Hardhat framework for all Solidity contracts
+- **Integration tests** validating end-to-end workflows across frontend, API, and blockchain
+- **Automated test execution** on every pull request and push to master
+
+### **Branch Protection & Code Review**
+- **Master branch protection** - Direct commits to master are prohibited
+- **Pull request requirement** - All changes must go through PR review process
+- **Peer review mandatory** - At least one team member approval required before merging
+- **CI status checks** - All tests must pass before PR can be merged
+
+### **Quality Gates**
+```yaml
+# .github/workflows/ci.yml includes:
+- Authentication & RBAC testing
+- Event management validation
+- Loyalty system integration tests
+- Resale marketplace functionality
+- Queue system and purchase protection
+- Smart contract compilation and testing
+```
+
+This ensures every deployment to master is thoroughly tested and reviewed, maintaining platform stability and security.
