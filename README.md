@@ -30,6 +30,7 @@ A blockchain-based ticket management system built with FastAPI and Ethereum smar
 
 To completely reset the database and start with fresh data:
 This will:
+
 - Remove all user accounts (except admin/organiser which are auto-created)
 - Clear all events, tickets, and marketplace listings
 - Reset blockchain state (all accounts get fresh 10,000 ETH)
@@ -46,18 +47,55 @@ docker volume prune -f
 docker compose up --build
 ```
 
+## Troubleshooting
+
+### "No space left on device" Error
+
+If you encounter PostgreSQL initialization errors due to insufficient disk space:
+
+```bash
+# Stop all containers
+docker compose down -v
+
+# Clean up unused Docker images (frees significant space)
+docker image prune -a -f
+
+# Clean up build cache
+docker builder prune -a -f
+
+# Clean up unused volumes
+docker volume prune -f
+
+# Check available space
+docker system df
+
+# Start fresh
+docker compose up --build
+```
+
+### Check Docker Disk Usage
+
+```bash
+# See what's taking up space
+docker system df
+
+# Get detailed breakdown
+docker system df -v
+```
+
 ## Default accounts
+
 -- Admin account
+
 - **`username`** : admin
 - **`password`** : password123
 
 -- Organiser account -> to create events
+
 - **`username`** : organiser
 - **`password`** : password123
 
 When registering new test users, ensure you do not reuse Wallet Address
-
-
 
 ## Architecture
 
@@ -83,4 +121,4 @@ For local development without Docker, see individual README files:
 
 ---
 
-**Note:** The Docker setup uses Hardhat's test accounts for development. 
+**Note:** The Docker setup uses Hardhat's test accounts for development.

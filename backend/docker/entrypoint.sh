@@ -2,7 +2,8 @@
 set -e
 
 echo "Starting Hardhat node..."
-npx hardhat node --hostname 0.0.0.0 --config hardhat.config.docker.js &
+# Enable verbose logging to see transactions and events
+npx hardhat node --hostname 0.0.0.0 --config hardhat.config.docker.js --verbose &
 NODE_PID=$!
 
 # Wait until Hardhat RPC responds (instead of fixed sleep)
@@ -29,5 +30,13 @@ npx hardhat run scripts/export.js --network localhost || {
   echo "Warning: ABI export failed, but continuing..."
 }
 
+# Start simple event monitoring in background
+echo "Starting event monitoring..."
+npx hardhat run scripts/simple-event-listener.js --network localhost &
+MONITOR_PID=$!
+
 echo "Hardhat node running on http://0.0.0.0:8545"
+echo "🎧 Event monitoring active - contract events will appear above!"
+
+# Wait for either process to exit
 wait $NODE_PID
