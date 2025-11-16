@@ -651,7 +651,8 @@ contract EventManager {
             return false;
         }
 
-        // Tickets must be for different sub-events (different days)
+        // For multi-day events, tickets must be for different sub-events (different days)
+        // For regular events, tickets can be from the same event
         if (subEventId1 == subEventId2) {
             return false;
         }

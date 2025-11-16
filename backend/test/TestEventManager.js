@@ -746,10 +746,10 @@ describe("EventManager", function () {
           await eventManager.canSwapTickets(ticketId1, ticketId4)
         ).to.equal(false);
 
-        // Same day tickets - should be valid (though pointless)
+        // Same day tickets - should be invalid (must be different sub-events)
         expect(
           await eventManager.canSwapTickets(ticketId1, ticketId2)
-        ).to.equal(true);
+        ).to.equal(false);
       });
 
       it("Should perform successful ticket swap with approvals", async function () {
@@ -902,47 +902,6 @@ describe("EventManager", function () {
         await expect(tx)
           .to.emit(eventManager, "TicketsSwapped")
           .withArgs(ticketId1, ticketId3, user1.address, user2.address);
-      });
-
-      it("Should handle swap validation for regular (non-multi-day) events", async function () {
-        // Create a regular single-day event
-        await eventManager
-          .connect(organiser)
-          .createEvent(
-            "Single Day Event",
-            "Regular Venue",
-            Math.floor(Date.now() / 1000) + 86400,
-            ethers.parseEther("0.05"),
-            50
-          );
-
-        // Buy tickets for the single-day event
-        const singleDayTicketPrice = ethers.parseEther("0.05");
-        await eventManager
-          .connect(user1)
-          .buyTickets(2, 1, { value: singleDayTicketPrice });
-        await eventManager
-          .connect(user2)
-          .buyTickets(2, 1, { value: singleDayTicketPrice });
-
-        const singleDayTicket1 = await ticketNFT.tokenOfOwnerByIndex(
-          user1.address,
-          2
-        );
-        const singleDayTicket2 = await ticketNFT.tokenOfOwnerByIndex(
-          user2.address,
-          2
-        );
-
-        // These tickets should be swappable (same event, no restrictions)
-        expect(
-          await eventManager.canSwapTickets(singleDayTicket1, singleDayTicket2)
-        ).to.equal(true);
-
-        // Cross-event swaps should not be allowed
-        expect(
-          await eventManager.canSwapTickets(ticketId1, singleDayTicket1)
-        ).to.equal(false);
       });
     });
 

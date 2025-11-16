@@ -46,7 +46,7 @@ describe("ResaleMarket", function () {
     await resaleMarket.waitForDeployment();
 
     // Create an event
-    const futureDate = 1824708111;
+    const futureDate = Math.floor(Date.now() / 1000) + 259200; // 3 days from now
     await eventManager
       .connect(organiser)
       .createEvent("Test Concert", "Test Venue", futureDate, TICKET_PRICE, 100);
@@ -335,8 +335,8 @@ describe("ResaleMarket", function () {
       // Get current time snapshot
       const currentTime = await time.latest();
 
-      // Fast forward time to after event end
-      await time.increaseTo(currentTime + 86500);
+      // Fast forward time to after event end (4 days from now, beyond the 3-day future event)
+      await time.increaseTo(currentTime + 345600); // 4 days in seconds
 
       await expect(
         resaleMarket.connect(buyer).buy(ticketId, { value: RESALE_PRICE })
@@ -345,8 +345,26 @@ describe("ResaleMarket", function () {
   });
 
   describe("Escrow Functionality", function () {
+    beforeEach(async function () {
+      // Get current blockchain time (which may have been advanced by previous tests)
+      const currentTime = await time.latest();
+      
+      // Create a fresh event for escrow tests far in the future
+      const futureDate = currentTime + 604800; // 7 days from current blockchain time
+      await eventManager
+        .connect(organiser)
+        .createEvent("Escrow Test Concert", "Test Venue", futureDate, TICKET_PRICE, 100);
+      
+      // Buy fresh tickets for seller
+      await eventManager.connect(seller).buyTickets(await eventManager.eventCounter(), 2, {
+        value: TICKET_PRICE * 2n,
+      });
+    });
+
     it("Should transfer ticket to contract on listing", async function () {
-      const ticketId = 1;
+      // Get the latest ticket ID (since we created fresh tickets)
+      const totalSupply = await ticketNFT.totalSupply();
+      const ticketId = totalSupply - 1n; // Last minted ticket
 
       // Verify seller owns ticket initially
       expect(await ticketNFT.ownerOf(ticketId)).to.equal(seller.address);
@@ -361,7 +379,9 @@ describe("ResaleMarket", function () {
     });
 
     it("Should transfer ticket back to seller on delisting", async function () {
-      const ticketId = 1;
+      // Get the latest ticket ID (since we created fresh tickets)
+      const totalSupply = await ticketNFT.totalSupply();
+      const ticketId = totalSupply - 1n; // Last minted ticket (fresh from this test's beforeEach)
 
       // List the ticket
       await resaleMarket.connect(seller).list(ticketId, RESALE_PRICE);
@@ -379,7 +399,9 @@ describe("ResaleMarket", function () {
     });
 
     it("Should transfer ticket from contract to buyer on purchase", async function () {
-      const ticketId = 1;
+      // Get the latest ticket ID (since we created fresh tickets)
+      const totalSupply = await ticketNFT.totalSupply();
+      const ticketId = totalSupply - 1n; // Last minted ticket
 
       // List the ticket
       await resaleMarket.connect(seller).list(ticketId, RESALE_PRICE);
