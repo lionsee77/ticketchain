@@ -330,16 +330,31 @@ describe("ResaleMarket", function () {
     });
 
     it("Should reject purchase after event ends", async function () {
-      const ticketId = 1;
-
-      // Get current time snapshot
+      // Create a new event that ends soon
       const currentTime = await time.latest();
+      const shortEventEnd = currentTime + 3600; // 1 hour from now
+      
+      await eventManager
+        .connect(organiser)
+        .createEvent("Short Event", "Test Venue", shortEventEnd, TICKET_PRICE, 10);
 
-      // Fast forward time to after event end
-      await time.increaseTo(currentTime + 86500);
+      // Buy a ticket for the short event
+      await eventManager.connect(seller).buyTickets(2, 1, {
+        value: TICKET_PRICE,
+      });
+
+      // Get the ticket ID for the short event (seller's latest ticket)
+      const sellerBalance = await ticketNFT.balanceOf(seller.address);
+      const shortEventTicketId = await ticketNFT.tokenOfOwnerByIndex(seller.address, Number(sellerBalance) - 1);
+
+      // List the ticket
+      await resaleMarket.connect(seller).list(shortEventTicketId, RESALE_PRICE);
+
+      // Fast forward time to after this event ends
+      await time.increaseTo(shortEventEnd + 1);
 
       await expect(
-        resaleMarket.connect(buyer).buy(ticketId, { value: RESALE_PRICE })
+        resaleMarket.connect(buyer).buy(shortEventTicketId, { value: RESALE_PRICE })
       ).to.be.revertedWith("Event already ended");
     });
   });

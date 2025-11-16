@@ -682,7 +682,7 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq bc
 
           # Make the test script executable
-          chmod +x ./test_loyalty_integration.sh
+          chmod +x ./ci-scripts/test_loyalty_integration.sh
 
           # Pre-test health checks for loyalty system
           echo "=== Pre-test Health Checks ==="
@@ -719,7 +719,7 @@ jobs:
           echo "• Complete loyalty lifecycle end-to-end"
 
           # Run the comprehensive loyalty integration test
-          if ./test_loyalty_integration.sh; then
+          if ./ci-scripts/test_loyalty_integration.sh; then
             echo ""
             echo "🎉 ==================================="
             echo "🎉 LOYALTY SYSTEM TESTS PASSED!"
@@ -756,8 +756,8 @@ jobs:
           echo "=== Testing Resale Market (Legacy) ==="
 
           # Use the working marketplace test script
-          chmod +x ./test_marketplace.sh
-          ./test_marketplace.sh
+          chmod +x ./ci-scripts/test_marketplace.sh
+          ./ci-scripts/test_marketplace.sh
 
       - name: Run Marketplace System Tests
         if: matrix.test-suite == 'marketplace-system'
@@ -765,8 +765,8 @@ jobs:
           echo "=== Testing Marketplace System ==="
 
           # Make test script executable and run it
-          chmod +x ./test_marketplace.sh
-          ./test_marketplace.sh
+          chmod +x ./ci-scripts/test_marketplace.sh
+          ./ci-scripts/test_marketplace.sh
 
       - name: Run Ticket Management System Tests
         if: matrix.test-suite == 'ticket-system'
@@ -774,8 +774,8 @@ jobs:
           echo "=== Testing Ticket Management System ==="
 
           # Make test script executable and run it
-          chmod +x ./test_ticket.sh
-          ./test_ticket.sh
+          chmod +x ./ci-scripts/test_ticket.sh
+          ./ci-scripts/test_ticket.sh
 
       - name: Run Queue System Tests
         if: matrix.test-suite == 'queue-system'
@@ -787,13 +787,13 @@ jobs:
           sudo apt-get update && sudo apt-get install -y jq
 
           # Make test scripts executable and run comprehensive queue tests
-          chmod +x ./test_queue.sh
-          chmod +x ./test_queue_to_buy.sh
+          chmod +x ./ci-scripts/test_queue.sh
+          chmod +x ./ci-scripts/test_queue_to_buy.sh
 
           echo "Running dedicated queue system tests..."
           
           # Run primary queue functionality test
-          if ./test_queue.sh; then
+          if ./ci-scripts/test_queue.sh; then
             echo "✅ Basic queue functionality tests passed"
           else
             echo "❌ Basic queue functionality tests failed"
@@ -801,7 +801,7 @@ jobs:
           fi
 
           # Run queue-to-buy integration test
-          if ./test_queue_to_buy.sh; then
+          if ./ci-scripts/test_queue_to_buy.sh; then
             echo "✅ Queue-to-buy integration tests passed"
           else
             echo "❌ Queue-to-buy integration tests failed" 
