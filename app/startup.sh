@@ -35,4 +35,6 @@ uv run python database/init_db.py
 
 # Start the FastAPI application
 echo "🎯 Starting FastAPI application..."
-exec uv run uvicorn main:app --host 0.0.0.0 --port 8000
+PORT=${PORT:-8000}
+echo "Using port: $PORT"
+exec uv run uvicorn main:app --host 0.0.0.0 --port $PORT

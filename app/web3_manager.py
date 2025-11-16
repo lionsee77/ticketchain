@@ -2,6 +2,8 @@ import json
 from web3 import Web3
 from config import config
 
+# Set up logging
+
 # Hardhat test account private keys
 HARDHAT_ACCOUNTS = {
     0: "0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80",
@@ -283,13 +285,13 @@ class Web3Manager:
         if points_awarded_event:
             return points_awarded_event[0]["args"]["pointsMinted"]
         return 0
-    
+
     def redeem_loyalty_points_queue(self, to_address: str, point_redeemed: int) -> int:
         """Redeem loyalty points to a user based on amount requested."""
         if not hasattr(self, "loyalty_system"):
             raise RuntimeError("LoyaltySystem contract not initialised")
 
-        # Use the oracle account to redeen points 
+        # Use the oracle account to redeen points
         oracle_account = self.get_user_account_by_index(
             0
         )  # Assuming oracle is account 0
