@@ -1,0 +1,102 @@
+services:
+  # FastAPI Application
+  api:
+    build: 
+      context: ./app
+      dockerfile: Dockerfile
+    environment:
+      - RPC_URL=http://blockchain:8545
+      - REDIS_URL=redis://redis:6379
+      - DATABASE_URL=postgresql://ticketchain:${POSTGRES_PASSWORD:-password123}@postgres:5432/ticketchain
+      - PORT=${PORT:-8000}
+    volumes:
+      - ./app/.env:/app/.env:ro
+      - contracts-shared:/app/contracts:ro
+    depends_on:
+      blockchain:
+        condition: service_healthy
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+    networks:
+      - ticketchain
+    # Coolify will handle port mapping automatically
+    expose:
+      - "8000"
+
+  # Next.js Frontend Application (Optional - can be deployed separately)
+  frontend:
+    build:
+      context: ./frontend/webapp
+      dockerfile: Dockerfile
+    environment:
+      - PORT=${FRONTEND_PORT:-3000}
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://api:8000}
+    depends_on:
+      - api
+    networks:
+      - ticketchain
+    expose:
+      - "3000"
+    command: npm run dev
+
+  # PostgreSQL Database
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-ticketchain}
+      POSTGRES_USER: ${POSTGRES_USER:-ticketchain}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-password123}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - ticketchain
+    # Internal port only - no external exposure needed
+    expose:
+      - "5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-ticketchain} -d ${POSTGRES_DB:-ticketchain}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Hardhat Blockchain
+  blockchain:
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile
+    volumes:
+      - contracts-shared:/app/shared
+    networks:
+      - ticketchain
+    # Internal port only
+    expose:
+      - "8545"
+    healthcheck:
+      test: ["CMD", "sh", "-c", "test -f /app/shared/EventManagerABI.json && test -f /app/shared/ResaleMarketABI.json && test -f /app/shared/TicketNFTABI.json && test -f /app/shared/LoyaltyPointABI.json && test -f /app/shared/LoyaltySystemABI.json"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 60s
+
+  # Redis for session/caching
+  redis:
+    image: redis:7-alpine
+    volumes:
+      - redis_data:/data
+    networks:
+      - ticketchain
+    # Internal port only
+    expose:
+      - "6379"
+    command: redis-server --appendonly yes
+
+volumes:
+  contracts-shared:
+  postgres_data:
+  redis_data:
+
+networks:
+  ticketchain:
+    driver: bridge

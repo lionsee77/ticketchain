@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Button } from "@/components/ui/button"
 import {
   Dialog,
@@ -15,6 +15,7 @@ import { Label } from "@/components/ui/label"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Loader2, AlertCircle, CheckCircle2 } from "lucide-react"
 import { apiClient } from '@/lib/api/client'
+import { Card, CardContent } from "@/components/ui/card"
 
 interface SellTicketsDialogProps {
   open: boolean
@@ -22,32 +23,63 @@ interface SellTicketsDialogProps {
   onSuccess?: () => void
 }
 
+interface OwnedTicket {
+  ticket_id: number
+  event_id: number
+  event_name: string
+  event_location: string
+  event_date: string
+  ticket_price: string
+  is_used: boolean
+  owner_address: string
+}
+
 export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTicketsDialogProps) {
-  const [formData, setFormData] = useState({
-    ticket_id: '',
-    price_eth: ''
-  })
+  const [ownedTickets, setOwnedTickets] = useState<OwnedTicket[]>([])
+  const [selectedTicket, setSelectedTicket] = useState<OwnedTicket | null>(null)
+  const [priceEth, setPriceEth] = useState('')
   const [loading, setLoading] = useState(false)
+  const [loadingTickets, setLoadingTickets] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState(false)
+
+  // Fetch user's tickets when dialog opens
+  useEffect(() => {
+    if (open) {
+      fetchUserTickets()
+    }
+  }, [open])
+
+  const fetchUserTickets = async () => {
+    setLoadingTickets(true)
+    setError(null)
+    try {
+      const response = await apiClient.getMyTickets()
+      // Filter out used tickets since they can't be listed
+      const availableTickets = response.tickets.filter(ticket => !ticket.is_used)
+      setOwnedTickets(availableTickets)
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'Failed to load tickets')
+    } finally {
+      setLoadingTickets(false)
+    }
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!formData.ticket_id || !formData.price_eth) {
-      setError('Please fill in all fields')
+    if (!selectedTicket) {
+      setError('Please select a ticket to list')
       return
     }
 
-    const ticketId = parseInt(formData.ticket_id)
-    const priceEth = parseFloat(formData.price_eth)
-
-    if (isNaN(ticketId) || ticketId < 0) {
-      setError('Please enter a valid ticket ID')
+    if (!priceEth) {
+      setError('Please enter a price')
       return
     }
 
-    if (isNaN(priceEth) || priceEth <= 0) {
+    const priceEthNum = parseFloat(priceEth)
+    if (isNaN(priceEthNum) || priceEthNum <= 0) {
       setError('Please enter a valid price')
       return
     }
@@ -57,14 +89,14 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
 
     try {
       // Convert ETH to wei (1 ETH = 10^18 wei)
-      const priceWei = Math.floor(priceEth * Math.pow(10, 18))
+      const priceWei = Math.floor(priceEthNum * Math.pow(10, 18))
 
-      console.log('🔍 Listing ticket:', { ticketId, priceWei })
+      console.log('🔍 Listing ticket:', { ticketId: selectedTicket.ticket_id, priceWei })
 
       // First check if marketplace is approved
       const approvalStatus = await apiClient.checkMarketApprovalStatus()
       console.log('📋 Approval status:', approvalStatus)
-      
+
       // If not approved, approve it first
       if (!approvalStatus.is_approved) {
         console.log('✅ Approving marketplace...')
@@ -74,7 +106,7 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
       // Then list the ticket (backend gets seller from JWT token)
       console.log('📝 Calling listTicket API...')
       const result = await apiClient.listTicket({
-        ticket_id: ticketId,
+        ticket_id: selectedTicket.ticket_id,
         price: priceWei
       })
       console.log('✅ List result:', result)
@@ -84,7 +116,8 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
         setSuccess(false)
         onOpenChange(false)
         // Reset form
-        setFormData({ ticket_id: '', price_eth: '' })
+        setSelectedTicket(null)
+        setPriceEth('')
         // Call refresh callback if provided
         if (onSuccess) {
           onSuccess()
@@ -101,6 +134,8 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
     if (!loading) {
       setError(null)
       setSuccess(false)
+      setSelectedTicket(null)
+      setPriceEth('')
       onOpenChange(false)
     }
   }
@@ -128,39 +163,71 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
         ) : (
           <form onSubmit={handleSubmit}>
             <div className="grid gap-4 py-4">
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="ticket_id" className="text-right">
-                  Ticket ID
-                </Label>
-                <Input
-                  id="ticket_id"
-                  type="number"
-                  placeholder="Enter ticket ID"
-                  className="col-span-3"
-                  value={formData.ticket_id}
-                  onChange={(e) => setFormData(prev => ({ ...prev, ticket_id: e.target.value }))}
-                  disabled={loading}
-                  min="0"
-                  step="1"
-                />
+              {/* Ticket Selection */}
+              <div className="space-y-2">
+                <Label>Select Ticket to List</Label>
+                {loadingTickets ? (
+                  <div className="flex items-center justify-center py-4">
+                    <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    Loading your tickets...
+                  </div>
+                ) : ownedTickets.length === 0 ? (
+                  <div className="text-sm text-gray-500 py-4 text-center">
+                    No available tickets to list. Only unused tickets can be listed for resale.
+                  </div>
+                ) : (
+                  <div className="max-h-60 overflow-y-auto space-y-2">
+                    {ownedTickets.map((ticket) => (
+                      <Card
+                        key={ticket.ticket_id}
+                        className={`cursor-pointer transition-colors ${selectedTicket?.ticket_id === ticket.ticket_id
+                            ? 'ring-2 ring-blue-500 bg-blue-50'
+                            : 'hover:bg-gray-50'
+                          }`}
+                        onClick={() => setSelectedTicket(ticket)}
+                      >
+                        <CardContent className="p-3">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <h4 className="font-medium text-sm">{ticket.event_name}</h4>
+                              <p className="text-xs text-gray-600">{ticket.event_location}</p>
+                              <p className="text-xs text-gray-500">
+                                Ticket #{ticket.ticket_id} • {new Date(parseInt(ticket.event_date) * 1000).toLocaleDateString()}
+                              </p>
+                            </div>
+                            <div className="text-right">
+                              <p className="text-xs text-gray-500">Original Price</p>
+                              <p className="text-sm font-medium">
+                                {(parseInt(ticket.ticket_price) / Math.pow(10, 18)).toFixed(4)} ETH
+                              </p>
+                            </div>
+                          </div>
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
               </div>
 
-              <div className="grid grid-cols-4 items-center gap-4">
-                <Label htmlFor="price_eth" className="text-right">
-                  Price (ETH)
-                </Label>
-                <Input
-                  id="price_eth"
-                  type="number"
-                  placeholder="0.1"
-                  className="col-span-3"
-                  value={formData.price_eth}
-                  onChange={(e) => setFormData(prev => ({ ...prev, price_eth: e.target.value }))}
-                  disabled={loading}
-                  min="0"
-                  step="0.001"
-                />
-              </div>
+              {/* Price Input */}
+              {selectedTicket && (
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="price_eth" className="text-right">
+                    Price (ETH)
+                  </Label>
+                  <Input
+                    id="price_eth"
+                    type="number"
+                    placeholder="0.1"
+                    className="col-span-3"
+                    value={priceEth}
+                    onChange={(e) => setPriceEth(e.target.value)}
+                    disabled={loading}
+                    min="0"
+                    step="0.001"
+                  />
+                </div>
+              )}
             </div>
 
             {error && (
@@ -179,7 +246,7 @@ export function SellTicketsDialog({ open, onOpenChange, onSuccess }: SellTickets
               >
                 Cancel
               </Button>
-              <Button type="submit" disabled={loading}>
+              <Button type="submit" disabled={loading || !selectedTicket || loadingTickets}>
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 List Ticket
               </Button>
