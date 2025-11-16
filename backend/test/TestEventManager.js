@@ -746,10 +746,10 @@ describe("EventManager", function () {
           await eventManager.canSwapTickets(ticketId1, ticketId4)
         ).to.equal(false);
 
-        // Same day tickets - should be valid (though pointless)
+        // Same day tickets - should be invalid (same sub-event)
         expect(
           await eventManager.canSwapTickets(ticketId1, ticketId2)
-        ).to.equal(true);
+        ).to.equal(false);
       });
 
       it("Should perform successful ticket swap with approvals", async function () {
@@ -934,10 +934,10 @@ describe("EventManager", function () {
           2
         );
 
-        // These tickets should be swappable (same event, no restrictions)
+        // These tickets should NOT be swappable (same sub-event for single-day events)
         expect(
           await eventManager.canSwapTickets(singleDayTicket1, singleDayTicket2)
-        ).to.equal(true);
+        ).to.equal(false);
 
         // Cross-event swaps should not be allowed
         expect(
