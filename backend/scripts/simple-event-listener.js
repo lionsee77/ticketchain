@@ -270,31 +270,25 @@ async function listenForEvents() {
 
     contracts.loyaltySystem.on(
       "PointsRedeemedTicket",
-      (user, eventId, ticketQuantity, pointsSpent) => {
+      (from, pointsBurned, weiDiscount) => {
         console.log(
           `🎫 POINTS REDEEMED FOR TICKETS:
-   User: ${user}
-   Event ID: ${eventId}
-   Tickets: ${ticketQuantity}
-   Points Spent: ${pointsSpent}
+   User: ${from}
+   Points Burned: ${hre.ethers.formatEther(pointsBurned)} points
+   Wei Discount: ${hre.ethers.formatEther(weiDiscount)} ETH
    ---`
         );
       }
     );
 
-    contracts.loyaltySystem.on(
-      "PointsRedeemedQueue",
-      (user, eventId, queuePosition, pointsSpent) => {
-        console.log(
-          `🏃 POINTS REDEEMED FOR QUEUE SKIP:
-   User: ${user}
-   Event ID: ${eventId}
-   Queue Position: ${queuePosition}
-   Points Spent: ${pointsSpent}
+    contracts.loyaltySystem.on("PointsRedeemedQueue", (from, pointsBurned) => {
+      console.log(
+        `🏃 POINTS REDEEMED FOR QUEUE SKIP:
+   User: ${from}
+   Points Burned: ${hre.ethers.formatEther(pointsBurned)} points
    ---`
-        );
-      }
-    );
+      );
+    });
 
     // Listen for LoyaltyPoint events
     contracts.loyaltyPoint.on("MinterUpdated", (newMinter) => {
@@ -304,7 +298,6 @@ async function listenForEvents() {
    ---`
       );
     });
-
   } catch (error) {
     console.error("❌ Error setting up event listener:", error);
   }

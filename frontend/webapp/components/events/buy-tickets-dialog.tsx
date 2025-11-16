@@ -58,7 +58,10 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
   const [loyaltyPointsAwarded, setLoyaltyPointsAwarded] = React.useState<number>(0)
   const [loyaltyPreview, setLoyaltyPreview] = React.useState<LoyaltyPreview | null>(null)
   const [loadingPreview, setLoadingPreview] = React.useState(false)
-  
+  const [loyaltyApproved, setLoyaltyApproved] = React.useState(false)
+  const [checkingApproval, setCheckingApproval] = React.useState(false)
+  const [approvingLoyalty, setApprovingLoyalty] = React.useState(false)
+
   // Queue-related state
   const [userAddress, setUserAddress] = React.useState<string>("")
   const [queueStatus, setQueueStatus] = React.useState<QueueStatus | null>(null)
@@ -82,7 +85,7 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
   React.useEffect(() => {
     const checkQueueStatusAndUser = async () => {
       if (!open) return
-      
+
       try {
         setCheckingQueue(true)
         setError(null)
@@ -90,6 +93,18 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
         // Get user profile for wallet address
         const profile = await apiClient.getProfile()
         setUserAddress(profile.wallet_address)
+
+        // Check loyalty approval status
+        setCheckingApproval(true)
+        try {
+          const approvalStatus = await apiClient.checkLoyaltyApprovalStatus()
+          setLoyaltyApproved(approvalStatus.is_approved)
+        } catch (err) {
+          console.error("Failed to check loyalty approval:", err)
+          setLoyaltyApproved(false)
+        } finally {
+          setCheckingApproval(false)
+        }
 
         // Check queue status
         try {
@@ -136,6 +151,26 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
     }
   }
 
+  // Handle loyalty points approval
+  const handleApproveLoyalty = async () => {
+    try {
+      setApprovingLoyalty(true)
+      setError(null)
+
+      await apiClient.approveLoyaltySystem()
+      setLoyaltyApproved(true)
+      setSuccess("✅ Loyalty points approved! You can now use them for discounts.")
+
+      // Auto-clear success message
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      console.error("Failed to approve loyalty system:", err)
+      setError(err instanceof Error ? err.message : "Failed to approve loyalty system")
+    } finally {
+      setApprovingLoyalty(false)
+    }
+  }
+
   // Fetch loyalty preview when loyalty checkbox is checked
   React.useEffect(() => {
     const fetchLoyaltyPreview = async () => {
@@ -144,13 +179,13 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
         // Convert ETH price to wei
         const pricePerTicketWei = BigInt(Math.floor(parseFloat(event.ticket_price) * 1e18))
         const totalWei = pricePerTicketWei * BigInt(quantity)
-        
+
         const preview = await apiClient.getLoyaltyPreview(totalWei.toString())
-        
+
         // Convert loyalty points from wei format (18 decimals) to regular number
         const pointsApplicableWei = BigInt(preview.points_applicable)
         const pointsApplicableFormatted = Number(pointsApplicableWei / BigInt(1e18))
-        
+
         setLoyaltyPreview({
           points_applicable: pointsApplicableFormatted,
           wei_discount: preview.wei_discount,
@@ -189,10 +224,10 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
       })
 
       // Show success with loyalty points
-      const pointsMsg = result.loyalty_points_awarded 
-        ? ` 🎉 Earned ${result.loyalty_points_awarded} loyalty points!` 
+      const pointsMsg = result.loyalty_points_awarded
+        ? ` 🎉 Earned ${result.loyalty_points_awarded} loyalty points!`
         : ''
-      
+
       setLoyaltyPointsAwarded(result.loyalty_points_awarded || 0)
       setSuccess(`${values.quantity} ticket${Number(values.quantity) > 1 ? 's' : ''} purchased!${pointsMsg}`)
       form.reset()
@@ -221,9 +256,9 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
   // Calculate total price
   const totalPriceEth = parseFloat(event.ticket_price) * quantity
   const totalPriceDisplay = totalPriceEth.toFixed(4)
-  
+
   // Calculate final price with loyalty discount
-  const finalPriceEth = loyaltyPreview 
+  const finalPriceEth = loyaltyPreview
     ? Number(BigInt(loyaltyPreview.wei_due) / BigInt(1e14)) / 10000 // Convert wei to ETH
     : totalPriceEth
   const discountEth = loyaltyPreview
@@ -253,198 +288,243 @@ export function BuyTicketsDialog({ event, onTicketsPurchased }: BuyTicketsDialog
               {needsToJoinQueue ? "Join Queue to Buy Tickets" : "Buy Tickets"}
             </DialogTitle>
             <DialogDescription>
-              {needsToJoinQueue 
+              {needsToJoinQueue
                 ? `Join the queue for ${event.name} to purchase tickets`
                 : `Purchase tickets for ${event.name}`
               }
             </DialogDescription>
           </DialogHeader>
 
-        {/* Loading state while checking queue */}
-        {checkingQueue && (
-          <div className="flex items-center justify-center p-6">
-            <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
-            <span className="text-gray-600">Checking queue status...</span>
-          </div>
-        )}
-
-        {/* Show different content based on queue status */}
-        {!checkingQueue && (
-          <>
-            {success && (
-              <div className="p-3 bg-green-50 border border-green-200 text-green-800 rounded-md text-xs break-all overflow-hidden max-w-full">
-                <div className="font-medium mb-1">✅ Purchase Successful!</div>
-                <div className="opacity-80">{success}</div>
-              </div>
-            )}
-
-            {error && (
-              <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-xs break-all overflow-hidden max-w-full">
-                <div className="font-medium mb-1">❌ Error</div>
-                <div className="opacity-80">{error}</div>
-              </div>
-            )}
-
-            {/* Show join queue button if not in queue */}
-            {needsToJoinQueue && (
-              <div className="space-y-4">
-                <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
-                  <div className="flex items-center gap-2 text-blue-800 mb-2">
-                    <Users className="h-4 w-4" />
-                    <span className="font-medium">Queue Required</span>
-                  </div>
-                  <p className="text-sm text-blue-700 mb-3">
-                    To ensure fair access, you need to join the queue before purchasing tickets. 
-                    You can use loyalty points for a better position!
-                  </p>
-                  <Button
-                    onClick={() => setShowJoinQueue(true)}
-                    className="w-full"
-                  >
-                    Join Queue
-                  </Button>
-                </div>
-              </div>
-            )}
-
-            {/* Show queue status if in queue but can't purchase yet */}
-            {inQueue && !canPurchase && (
-              <div className="space-y-4">
-                <QueueStatusCard
-                  userAddress={userAddress}
-                  eventName={event.name}
-                  onLeaveQueue={handleLeaveQueue}
-                  onCanPurchase={handleCanPurchase}
-                />
-              </div>
-            )}
-
-            {/* Show purchase form if in queue and can purchase */}
-            {inQueue && canPurchase && (
-              <div className="space-y-4">
-                <QueueStatusCard
-                  userAddress={userAddress}
-                  eventName={event.name}
-                  onLeaveQueue={handleLeaveQueue}
-                  onCanPurchase={handleCanPurchase}
-                />
-        
-                {/* Purchase form */}
-                <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            <div className="space-y-2">
-              <h3 className="font-medium">Event Details</h3>
-              <div className="text-sm text-gray-600">
-                <p><strong>Event:</strong> {event.name}</p>
-                <p><strong>Venue:</strong> {event.venue}</p>
-                <p><strong>Date:</strong> {new Date(event.datetime).toLocaleDateString()}</p>
-                <p><strong>Price per ticket:</strong> {event.ticket_price} ETH</p>
-                <p><strong>Available:</strong> {event.available_tickets} tickets</p>
-              </div>
+          {/* Loading state while checking queue */}
+          {checkingQueue && (
+            <div className="flex items-center justify-center p-6">
+              <Loader2 className="h-6 w-6 animate-spin text-blue-600 mr-2" />
+              <span className="text-gray-600">Checking queue status...</span>
             </div>
+          )}
 
-            <FormField
-              control={form.control}
-              name="quantity"
-              render={({ field }) => (
-                <FormItem>
-                  <FormLabel>Number of Tickets</FormLabel>
-                  <FormControl>
-                    <Input
-                      type="number"
-                      min="1"
-                      max={event.available_tickets}
-                      placeholder="1"
-                      {...field}
-                    />
-                  </FormControl>
-                  <FormMessage />
-                </FormItem>
-              )}
-            />
-
-            <FormField
-              control={form.control}
-              name="useLoyaltyPoints"
-              render={({ field }) => (
-                <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
-                  <FormControl>
-                    <Checkbox
-                      checked={field.value}
-                      onCheckedChange={field.onChange}
-                    />
-                  </FormControl>
-                  <div className="space-y-1 leading-none">
-                    <FormLabel>
-                      Use Loyalty Points for Discount
-                    </FormLabel>
-                    <FormDescription>
-                      Redeem your loyalty points for up to 30% off
-                    </FormDescription>
-                  </div>
-                </FormItem>
-              )}
-            />
-
-            {loadingPreview && (
-              <div className="flex items-center justify-center p-4">
-                <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
-              </div>
-            )}
-
-            {loyaltyPreview && !loadingPreview && (
-              <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-md space-y-2">
-                <p className="text-sm font-semibold text-amber-900">
-                  🎁 Loyalty Discount Applied!
-                </p>
-                <div className="text-xs text-amber-800 space-y-1">
-                  <p>Points to redeem: <strong>{loyaltyPreview.points_to_redeem}</strong></p>
-                  <p>Discount: <strong className="text-green-600">-{discountEth.toFixed(4)} ETH</strong></p>
-                  <p>You pay: <strong>{finalPriceEth.toFixed(4)} ETH</strong></p>
-                </div>
-              </div>
-            )}
-
-            <div className="p-3 bg-gray-50 rounded-md">
-              <p className="font-medium">
-                {loyaltyPreview ? 'Original' : 'Total'}: {totalPriceDisplay} ETH
-              </p>
-              <p className="text-sm text-gray-600">
-                {quantity} ticket(s) × {event.ticket_price} ETH each
-              </p>
-              {loyaltyPreview && (
-                <div className="mt-2 pt-2 border-t border-gray-200">
-                  <p className="font-bold text-lg text-green-600">
-                    Final Price: {finalPriceEth.toFixed(4)} ETH
-                  </p>
-                  <p className="text-xs text-gray-600">
-                    Saved {discountEth.toFixed(4)} ETH with loyalty points!
-                  </p>
+          {/* Show different content based on queue status */}
+          {!checkingQueue && (
+            <>
+              {success && (
+                <div className="p-3 bg-green-50 border border-green-200 text-green-800 rounded-md text-xs break-all overflow-hidden max-w-full">
+                  <div className="font-medium mb-1">✅ Purchase Successful!</div>
+                  <div className="opacity-80">{success}</div>
                 </div>
               )}
-            </div>
 
-            {loyaltyPointsAwarded > 0 && (
-              <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-md">
-                <p className="text-sm font-medium text-blue-800 flex items-center gap-2">
-                  🎉 You earned {loyaltyPointsAwarded} loyalty points!
-                </p>
-              </div>
-            )}
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 text-red-800 rounded-md text-xs break-all overflow-hidden max-w-full">
+                  <div className="font-medium mb-1">❌ Error</div>
+                  <div className="opacity-80">{error}</div>
+                </div>
+              )}
 
+              {/* Show join queue button if not in queue */}
+              {needsToJoinQueue && (
+                <div className="space-y-4">
+                  <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                    <div className="flex items-center gap-2 text-blue-800 mb-2">
+                      <Users className="h-4 w-4" />
+                      <span className="font-medium">Queue Required</span>
+                    </div>
+                    <p className="text-sm text-blue-700 mb-3">
+                      To ensure fair access, you need to join the queue before purchasing tickets.
+                      You can use loyalty points for a better position!
+                    </p>
                     <Button
-                      type="submit"
-                      disabled={isLoading || Number(form.watch("quantity")) > event.available_tickets}
+                      onClick={() => setShowJoinQueue(true)}
                       className="w-full"
                     >
-                      {isLoading ? "Processing..." : `Buy ${quantity} Ticket${quantity > 1 ? 's' : ''}`}
+                      Join Queue
                     </Button>
-                  </form>
-                </Form>
-              </div>
-            )}
-          </>
-        )}
+                  </div>
+                </div>
+              )}
+
+              {/* Show queue status if in queue but can't purchase yet */}
+              {inQueue && !canPurchase && (
+                <div className="space-y-4">
+                  <QueueStatusCard
+                    userAddress={userAddress}
+                    eventName={event.name}
+                    onLeaveQueue={handleLeaveQueue}
+                    onCanPurchase={handleCanPurchase}
+                  />
+                </div>
+              )}
+
+              {/* Show purchase form if in queue and can purchase */}
+              {inQueue && canPurchase && (
+                <div className="space-y-4">
+                  <QueueStatusCard
+                    userAddress={userAddress}
+                    eventName={event.name}
+                    onLeaveQueue={handleLeaveQueue}
+                    onCanPurchase={handleCanPurchase}
+                  />
+
+                  {/* Purchase form */}
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                      <div className="space-y-2">
+                        <h3 className="font-medium">Event Details</h3>
+                        <div className="text-sm text-gray-600">
+                          <p><strong>Event:</strong> {event.name}</p>
+                          <p><strong>Venue:</strong> {event.venue}</p>
+                          <p><strong>Date:</strong> {new Date(event.datetime).toLocaleDateString()}</p>
+                          <p><strong>Price per ticket:</strong> {event.ticket_price} ETH</p>
+                          <p><strong>Available:</strong> {event.available_tickets} tickets</p>
+                        </div>
+                      </div>
+
+                      <FormField
+                        control={form.control}
+                        name="quantity"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Number of Tickets</FormLabel>
+                            <FormControl>
+                              <Input
+                                type="number"
+                                min="1"
+                                max={event.available_tickets}
+                                placeholder="1"
+                                {...field}
+                              />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+
+                      <FormField
+                        control={form.control}
+                        name="useLoyaltyPoints"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-row items-start space-x-3 space-y-0 rounded-md border p-4">
+                            <FormControl>
+                              <Checkbox
+                                checked={field.value}
+                                onCheckedChange={(checked: boolean) => {
+                                  if (checked && !loyaltyApproved) {
+                                    // Don't check the box yet, show approval needed
+                                    return
+                                  }
+                                  field.onChange(checked)
+                                }}
+                              />
+                            </FormControl>
+                            <div className="space-y-1 leading-none flex-1">
+                              <FormLabel>
+                                Use Loyalty Points for Discount
+                              </FormLabel>
+                              <FormDescription>
+                                Redeem your loyalty points for up to 30% off
+                              </FormDescription>
+
+                              {/* Show approval status */}
+                              {checkingApproval && (
+                                <div className="flex items-center gap-2 text-sm text-gray-500 mt-2">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  Checking approval status...
+                                </div>
+                              )}
+
+                              {!checkingApproval && !loyaltyApproved && (
+                                <div className="mt-2">
+                                  <p className="text-xs text-amber-600 mb-2">
+                                    ⚠️ You need to approve the loyalty system first
+                                  </p>
+                                  <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={handleApproveLoyalty}
+                                    disabled={approvingLoyalty}
+                                    className="text-xs"
+                                  >
+                                    {approvingLoyalty ? (
+                                      <>
+                                        <Loader2 className="h-3 w-3 animate-spin mr-1" />
+                                        Approving...
+                                      </>
+                                    ) : (
+                                      "Approve Loyalty System"
+                                    )}
+                                  </Button>
+                                </div>
+                              )}
+
+                              {loyaltyApproved && (
+                                <p className="text-xs text-green-600 mt-2">
+                                  ✅ Loyalty system approved
+                                </p>
+                              )}
+                            </div>
+                          </FormItem>
+                        )}
+                      />
+
+                      {loadingPreview && (
+                        <div className="flex items-center justify-center p-4">
+                          <Loader2 className="h-6 w-6 animate-spin text-blue-600" />
+                        </div>
+                      )}
+
+                      {loyaltyPreview && !loadingPreview && (
+                        <div className="p-4 bg-gradient-to-r from-amber-50 to-orange-50 border border-amber-200 rounded-md space-y-2">
+                          <p className="text-sm font-semibold text-amber-900">
+                            🎁 Loyalty Discount Applied!
+                          </p>
+                          <div className="text-xs text-amber-800 space-y-1">
+                            <p>Points to redeem: <strong>{loyaltyPreview.points_to_redeem}</strong></p>
+                            <p>Discount: <strong className="text-green-600">-{discountEth.toFixed(4)} ETH</strong></p>
+                            <p>You pay: <strong>{finalPriceEth.toFixed(4)} ETH</strong></p>
+                          </div>
+                        </div>
+                      )}
+
+                      <div className="p-3 bg-gray-50 rounded-md">
+                        <p className="font-medium">
+                          {loyaltyPreview ? 'Original' : 'Total'}: {totalPriceDisplay} ETH
+                        </p>
+                        <p className="text-sm text-gray-600">
+                          {quantity} ticket(s) × {event.ticket_price} ETH each
+                        </p>
+                        {loyaltyPreview && (
+                          <div className="mt-2 pt-2 border-t border-gray-200">
+                            <p className="font-bold text-lg text-green-600">
+                              Final Price: {finalPriceEth.toFixed(4)} ETH
+                            </p>
+                            <p className="text-xs text-gray-600">
+                              Saved {discountEth.toFixed(4)} ETH with loyalty points!
+                            </p>
+                          </div>
+                        )}
+                      </div>
+
+                      {loyaltyPointsAwarded > 0 && (
+                        <div className="p-3 bg-gradient-to-r from-blue-50 to-purple-50 border border-blue-200 rounded-md">
+                          <p className="text-sm font-medium text-blue-800 flex items-center gap-2">
+                            🎉 You earned {loyaltyPointsAwarded} loyalty points!
+                          </p>
+                        </div>
+                      )}
+
+                      <Button
+                        type="submit"
+                        disabled={isLoading || Number(form.watch("quantity")) > event.available_tickets}
+                        className="w-full"
+                      >
+                        {isLoading ? "Processing..." : `Buy ${quantity} Ticket${quantity > 1 ? 's' : ''}`}
+                      </Button>
+                    </form>
+                  </Form>
+                </div>
+              )}
+            </>
+          )}
         </DialogContent>
       </Dialog>
 

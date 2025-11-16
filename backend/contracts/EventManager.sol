@@ -417,7 +417,7 @@ contract EventManager {
         // Mint tickets to the buyer
         mintTickets(eventId, quantity, msg.sender);
 
-        // Award loyalty points automatically
+        // Award loyalty points automatically (only for full-price purchases)
         if (loyaltySystemAddress != address(0)) {
             try
                 ILoyaltySystem(loyaltySystemAddress).awardPoints(
@@ -432,6 +432,34 @@ contract EventManager {
         }
 
         emit TicketsPurchased(eventId, msg.sender, quantity);
+    }
+
+    // Buy tickets for an event with loyalty discount (oracle only)
+    function buyTicketsWithDiscount(
+        uint256 eventId,
+        uint256 quantity,
+        address recipient,
+        uint256 fullPrice
+    ) public payable oracleOnly {
+        Event storage e = events[eventId];
+        require(e.isActive, "Event is not active");
+        require(quantity > 0, "Invalid ticket quantity");
+        require(
+            e.ticketsSold + quantity <= e.totalTickets,
+            "Not enough tickets available"
+        );
+        require(fullPrice == e.ticketPrice * quantity, "Invalid full price");
+        // msg.value should be less than fullPrice due to discount
+
+        e.ticketsSold += quantity;
+
+        // Mint tickets to the recipient
+        mintTickets(eventId, quantity, recipient);
+
+        // DO NOT award loyalty points when discount is used
+        // This prevents earning points when points were spent for discount
+
+        emit TicketsPurchased(eventId, recipient, quantity);
     }
 
     // Buy tickets for an event on behalf of another address (oracle only)
