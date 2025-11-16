@@ -53,6 +53,13 @@ interface ITicketNFT {
     ) external view returns (uint256[] memory);
 }
 
+interface ILoyaltySystem {
+    function awardPoints(
+        address to,
+        uint256 weiAmount
+    ) external returns (uint256 minted);
+}
+
 contract EventManager {
     struct Event {
         uint256 id;
@@ -86,6 +93,7 @@ contract EventManager {
     // Start subEventCounter at a high offset to avoid ID collisions with event IDs
     uint256 public subEventCounter = 1_000_000; // Counter for sub-event IDs
     address public ticketNFTAddress; // Address of the TicketNFT contract
+    address public loyaltySystemAddress; // Address of the LoyaltySystem contract
     address public oracle; // Address of the oracle
 
     event EventCreated(uint256 eventId, string name, address organiser);
@@ -117,6 +125,11 @@ contract EventManager {
     // Set the TicketNFT contract address
     function setTicketNFTAddress(address _ticketNFTAddress) public {
         ticketNFTAddress = _ticketNFTAddress;
+    }
+
+    // Set the LoyaltySystem contract address
+    function setLoyaltySystemAddress(address _loyaltySystemAddress) public {
+        loyaltySystemAddress = _loyaltySystemAddress;
     }
 
     // Modifier to restrict access to oracle
@@ -243,6 +256,20 @@ contract EventManager {
 
         // Mint tickets to the buyer (using sub-event ID)
         mintSubEventTickets(parentEvent.id, subEventId, quantity, msg.sender);
+
+        // Award loyalty points automatically
+        if (loyaltySystemAddress != address(0)) {
+            try
+                ILoyaltySystem(loyaltySystemAddress).awardPoints(
+                    msg.sender,
+                    msg.value
+                )
+            {
+                // Loyalty points awarded successfully
+            } catch {
+                // Loyalty point awarding failed, but don't fail the ticket purchase
+            }
+        }
 
         emit SubEventTicketsPurchased(subEventId, msg.sender, quantity);
     }
@@ -390,6 +417,20 @@ contract EventManager {
         // Mint tickets to the buyer
         mintTickets(eventId, quantity, msg.sender);
 
+        // Award loyalty points automatically
+        if (loyaltySystemAddress != address(0)) {
+            try
+                ILoyaltySystem(loyaltySystemAddress).awardPoints(
+                    msg.sender,
+                    msg.value
+                )
+            {
+                // Loyalty points awarded successfully
+            } catch {
+                // Loyalty point awarding failed, but don't fail the ticket purchase
+            }
+        }
+
         emit TicketsPurchased(eventId, msg.sender, quantity);
     }
 
@@ -415,6 +456,20 @@ contract EventManager {
 
         // Mint tickets to the specified recipient (not msg.sender)
         mintTickets(eventId, quantity, recipient);
+
+        // Award loyalty points automatically to the recipient
+        if (loyaltySystemAddress != address(0)) {
+            try
+                ILoyaltySystem(loyaltySystemAddress).awardPoints(
+                    recipient,
+                    msg.value
+                )
+            {
+                // Loyalty points awarded successfully
+            } catch {
+                // Loyalty point awarding failed, but don't fail the ticket purchase
+            }
+        }
 
         emit TicketsPurchased(eventId, recipient, quantity);
     }

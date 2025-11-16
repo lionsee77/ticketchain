@@ -83,6 +83,11 @@ async function main() {
   await eventManager.setTicketNFTAddress(ticketNFTAddress);
   console.log("✓ TicketNFT address set in EventManager");
 
+  // Set LoyaltySystem address in EventManager
+  console.log("Setting LoyaltySystem address in EventManager...");
+  await eventManager.setLoyaltySystemAddress(loyaltySystemAddress);
+  console.log("✓ LoyaltySystem address set in EventManager");
+
   // Set EventManager as owner of TicketNFT to allow minting
   console.log("Transferring TicketNFT ownership to EventManager...");
   await ticketNFT.transferOwnership(eventManagerAddress);
@@ -129,7 +134,7 @@ async function main() {
       EventManager: eventManagerAddress,
       ResaleMarket: resaleMarketAddress,
       LoyaltyPoint: loyaltyPointAddress,
-      LoyaltySystem: loyaltySystemAddress
+      LoyaltySystem: loyaltySystemAddress,
     },
     timestamp: new Date().toISOString(),
   };
